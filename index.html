@@ -4899,6 +4899,7 @@ td.num{text-align:right;font-family:'IBM Plex Mono',monospace;}
   </div>
   ` : ''}
 
+  ${filters.tumDetay ? '' : `
   <div class="card">
     <h2>Detaylı ${esc(kisaAd)} Listesi</h2>
     <table>
@@ -4906,6 +4907,7 @@ td.num{text-align:right;font-family:'IBM Plex Mono',monospace;}
       <tbody>${detayGovde}</tbody>
     </table>
   </div>
+  `}
 
   ${filters.tumDetay ? depoTumKayitDetaylariHtml(r.rows) : ''}
 </body></html>`;
