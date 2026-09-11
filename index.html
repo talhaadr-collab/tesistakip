@@ -4755,15 +4755,8 @@ function buildTesisReport(filters){
 }
 
 function kuyuReportTable(rows){
-  if(rows.length===0) return `<tr><td colspan="11" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
+  if(rows.length===0) return `<tr><td colspan="12" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
   return rows.map(b=>{
-    const acilis = parseFloat(b.acilisDebisi);
-    const guncel = parseFloat(b.debi);
-    let dusus = '—';
-    if(!isNaN(acilis) && !isNaN(guncel)){
-      const fark = acilis - guncel;
-      dusus = fark > 0 ? `-${fark.toLocaleString('tr-TR')} lt/sn` : fark < 0 ? `+${Math.abs(fark).toLocaleString('tr-TR')} lt/sn` : 'Değişim yok';
-    }
     const durum = `${b.durum==='aktif'?'Aktif':b.durum==='devredisi'?'Devre Dışı':'—'}${b.kuyuBitti?' — Kuyu Bitti':(b.kuyuSonda?' — Kuyu Sonda':' — İlave Yapılabilir')}`;
     return `<tr>
       <td>${esc(b.ilce)||'—'}</td>
@@ -4771,11 +4764,12 @@ function kuyuReportTable(rows){
       <td>${esc(b.isim)||'—'}</td>
       <td class="num">${b.acilisDebisi?esc(b.acilisDebisi)+' lt/sn':'—'}</td>
       <td class="num">${b.debi?esc(b.debi)+' lt/sn':'—'}</td>
-      <td class="num">${dusus}</td>
       <td class="num">${b.pompaGucu?esc(b.pompaGucu)+' kW':'—'}</td>
       <td class="num">${b.kuyuDerinligi?esc(b.kuyuDerinligi)+' m':'—'}</td>
       <td class="num">${esc(b.dinamikSeviye)||'—'}</td>
       <td>${durum}</td>
+      <td>${b.yapimTarihi?fmtDateShort(b.yapimTarihi):'—'}</td>
+      <td>${b.pasifeAlmaTarihi?fmtDateShort(b.pasifeAlmaTarihi):'—'}</td>
       <td>${b.tadilatIhtiyaci==='evet'?'Var':b.tadilatIhtiyaci==='hayir'?'Yok':'—'}</td>
     </tr>`;
   }).join('');
@@ -4831,7 +4825,7 @@ function renderTesisReportHtml(filters, r){
 
   let baslikSatiri, detayGovde;
   if(activeTesisTuru === 'Kuyu'){
-    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Kuyu Adı / No</th><th style="text-align:right;">Açılış Debisi</th><th style="text-align:right;">Güncel Debi</th><th style="text-align:right;">Düşüş</th><th style="text-align:right;">Pompa Gücü</th><th style="text-align:right;">Kuyu Derinliği</th><th style="text-align:right;">Kurulu Pompa Derinliği</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
+    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Kuyu Adı / No</th><th style="text-align:right;">Açılış Debisi</th><th style="text-align:right;">Güncel Debi</th><th style="text-align:right;">Pompa Gücü</th><th style="text-align:right;">Kuyu Derinliği</th><th style="text-align:right;">Kurulu Pompa Derinliği</th><th>Durum</th><th>Devreye Alma Tarihi</th><th>Pasife Alma Tarihi</th><th>Tadilat İhtiyacı</th>`;
     detayGovde = kuyuReportTable(r.rows);
   }else if(activeTesisTuru === 'Su Deposu'){
     baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Depo Adı</th><th style="text-align:right;">Hacim</th><th style="text-align:right;">Toplam Besleme Debisi</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
