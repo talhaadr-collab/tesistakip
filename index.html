@@ -803,6 +803,7 @@ function blank(){
     // --- Aşağıdakiler yalnızca Su Deposu (Depo) kayıtlarında kullanılır ---
     adaParsel:"", parselMulkiyeti:"",
     besledigiKaynaklar:[], // {tip:'havuz'|'elle', tesisId?, ad, debi?} nesne dizisi
+    besledigiTesisYerlesim:[], // yalnızca Kaynak'ta kullanılır: dize dizisi (beslediği tesis/yerleşim)
     besledigiYerler:[],    // dize dizisi: mahalle / sanat yapısı vb.
     // Halk Sağlığı Bilgileri
     manevraOdasiVarMi:"", klorlamaCihaziVarMi:"", klorlamaFaaliyetDurumu:"", korumaAlaniVarMi:"",
@@ -4297,6 +4298,9 @@ function genelFields(b){
     html += depoKaynakListeHtml(b);
     html += depoListeHtml(b, 'besledigiYerler', 'Beslediği Yerler', 'Mahalle, sanat yapısı vb. yazın', false);
   }
+  if(b.tesisTuru === 'Kaynak'){
+    html += depoListeHtml(b, 'besledigiTesisYerlesim', 'Beslediği Tesis / Yerleşim', 'Tesis veya yerleşim adı yazın', false);
+  }
   html += konumFieldHtml(b);
   html += `
     <div class="field"><label>Durum</label>
@@ -4802,6 +4806,19 @@ function genericReportTable(rows, specs, aciklamaVar){
   </tr>`).join('');
 }
 
+function kaynakReportTable(rows){
+  if(rows.length===0) return `<tr><td colspan="7" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
+  return rows.map(b=>`<tr>
+    <td>${esc(b.ilce)||'—'}</td>
+    <td>${esc(b.mahalle)||'—'}</td>
+    <td>${esc(b.isim)||'—'}</td>
+    <td class="num">${b.debi?esc(b.debi)+' lt/sn':'—'}</td>
+    <td>${(b.besledigiTesisYerlesim||[]).length ? esc(b.besledigiTesisYerlesim.join(', ')) : '—'}</td>
+    <td>${b.durum==='aktif'?'Aktif':b.durum==='devredisi'?'Devre Dışı':'—'}</td>
+    <td>${b.tadilatIhtiyaci==='evet'?'Var':b.tadilatIhtiyaci==='hayir'?'Yok':'—'}</td>
+  </tr>`).join('');
+}
+
 function renderTesisReportHtml(filters, r){
   const kisaAd = (MENU_TURLER.find(m=>m.turu===activeTesisTuru)||{}).kisaAd || activeTesisTuru;
   const durumOptText = {
@@ -4819,6 +4836,9 @@ function renderTesisReportHtml(filters, r){
   }else if(activeTesisTuru === 'Su Deposu'){
     baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Depo Adı</th><th style="text-align:right;">Hacim</th><th style="text-align:right;">Toplam Besleme Debisi</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
     detayGovde = depoReportTable(r.rows);
+  }else if(activeTesisTuru === 'Kaynak'){
+    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Kaynak Adı</th><th style="text-align:right;">Debi</th><th>Beslediği Tesis / Yerleşim</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
+    detayGovde = kaynakReportTable(r.rows);
   }else{
     const specs = specFields(activeTesisTuru);
     const aciklamaVar = !!HAS_ACIKLAMA[activeTesisTuru];
@@ -5023,6 +5043,16 @@ function renderTesisSingleReportHtml(b){
     ${satir('Kuyu Bitti', b.kuyuBitti?'Evet':'Hayır')}
   ` : '';
 
+  let kaynakBlok = '';
+  if(b.tesisTuru === 'Kaynak' && (b.besledigiTesisYerlesim||[]).length){
+    kaynakBlok = `
+      <div class="blok" style="grid-column:1 / -1;">
+        <h3>Beslediği Tesis / Yerleşim</h3>
+        ${satir('Beslediği Tesis / Yerleşim', (b.besledigiTesisYerlesim||[]).join(', '))}
+      </div>
+    `;
+  }
+
   let depoBlok = '';
   if(b.tesisTuru === 'Su Deposu'){
     const kaynakSatirlariHtml = (b.besledigiKaynaklar||[]).map(k=>{
@@ -5150,6 +5180,7 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
       </div>
       ${pompaBlok}
       ${depoBlok}
+      ${kaynakBlok}
       ${HAS_ACIKLAMA[b.tesisTuru] ? `
       <div class="blok" style="grid-column:1 / -1;">
         <h3>Açıklama</h3>
