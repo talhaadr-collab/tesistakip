@@ -782,6 +782,7 @@ const PHOTO_GROUPS = {
 };
 
 const HAS_ACIKLAMA = {"Hizmet Binası":true,"Kanalizasyon Arıtma":true};
+const ACIKLAMA_ETIKETI = {"Hizmet Binası":"Açıklama","Kanalizasyon Arıtma":"Teknik Özellikler"};
 
 function uid(){ return 'T' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase(); }
 function esc(s){ return (s||'').toString().replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -4526,8 +4527,9 @@ function genelFields(b){
     `;
   }
   if(HAS_ACIKLAMA[b.tesisTuru]){
-    html += `<div class="field"><label>Açıklama</label>
-      <textarea oninput="updateTextField('${b.id}','aciklama',this.value)" placeholder="Tesis hakkında açıklama">${esc(b.aciklama)}</textarea>
+    const acikEtiket = ACIKLAMA_ETIKETI[b.tesisTuru] || 'Açıklama';
+    html += `<div class="field"><label>${acikEtiket}</label>
+      <textarea oninput="updateTextField('${b.id}','aciklama',this.value)" placeholder="${acikEtiket==='Teknik Özellikler' ? 'Tesise ait teknik özellikleri girin' : 'Tesis hakkında açıklama'}">${esc(b.aciklama)}</textarea>
     </div>`;
   }
   photoGroups(b.tesisTuru).forEach(g=>{
@@ -4754,7 +4756,7 @@ function genericTableHtml(rows, turu){
   return `
     <table class="rep-tbl">
       <thead><tr>
-        ${siralamaVar?'<th style="width:50px;">Sıra</th>':''}<th>İlçe</th><th>Mahalle</th><th>İsim</th>${specs.map(s=>`<th>${esc(s.label)}</th>`).join('')}${aciklamaVar?'<th>Açıklama</th>':''}<th>Durum</th><th>Tadilat</th><th>Fotoğraf</th><th>Konum</th>
+        ${siralamaVar?'<th style="width:50px;">Sıra</th>':''}<th>İlçe</th><th>Mahalle</th><th>İsim</th>${specs.map(s=>`<th>${esc(s.label)}</th>`).join('')}${aciklamaVar?`<th>${esc(ACIKLAMA_ETIKETI[turu]||'Açıklama')}</th>`:''}<th>Durum</th><th>Tadilat</th><th>Fotoğraf</th><th>Konum</th>
       </tr></thead>
       <tbody>
         ${rows.map((b,i)=>{
@@ -4930,7 +4932,7 @@ function renderTesisReportHtml(filters, r){
   }else{
     const specs = specFields(activeTesisTuru);
     const aciklamaVar = !!HAS_ACIKLAMA[activeTesisTuru];
-    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>İsim</th>${specs.map(s=>`<th style="text-align:right;">${esc(s.label)}</th>`).join('')}${aciklamaVar?'<th>Açıklama</th>':''}<th>Durum</th><th>Tadilat İhtiyacı</th>`;
+    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>İsim</th>${specs.map(s=>`<th style="text-align:right;">${esc(s.label)}</th>`).join('')}${aciklamaVar?`<th>${esc(ACIKLAMA_ETIKETI[activeTesisTuru]||'Açıklama')}</th>`:''}<th>Durum</th><th>Tadilat İhtiyacı</th>`;
     detayGovde = genericReportTable(r.rows, specs, aciklamaVar);
   }
 
@@ -5271,18 +5273,20 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
         ${satir('Mahalle', b.mahalle)}
         ${satir('Durum', durumMetin)}
       </div>
+      ${!specs.length && ACIKLAMA_ETIKETI[b.tesisTuru]==='Teknik Özellikler' ? '' : `
       <div class="blok">
         <h3>Teknik Özellikler</h3>
         ${specs.length ? specs.map(s=>satir(s.label, b[s.key])).join('') : `<div class="bilgi-satir"><span class="k">—</span><span class="v">Bu tür için ek özellik alanı yok</span></div>`}
         ${kuyuBlok}
       </div>
+      `}
       ${pompaBlok}
       ${depoBlok}
       ${kaynakBlok}
       ${aritmaBlok}
       ${HAS_ACIKLAMA[b.tesisTuru] ? `
       <div class="blok" style="grid-column:1 / -1;">
-        <h3>Açıklama</h3>
+        <h3>${esc(ACIKLAMA_ETIKETI[b.tesisTuru]||'Açıklama')}</h3>
         <div style="font-size:12.5px;line-height:1.6;">${esc(b.aciklama) || '—'}</div>
       </div>
       ` : ''}
