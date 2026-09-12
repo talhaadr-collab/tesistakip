@@ -804,6 +804,7 @@ function blank(){
     adaParsel:"", parselMulkiyeti:"",
     besledigiKaynaklar:[], // {tip:'havuz'|'elle', tesisId?, ad, debi?} nesne dizisi
     besledigiTesisYerlesim:[], // yalnızca Kaynak'ta kullanılır: dize dizisi (beslediği tesis/yerleşim)
+    aritmaMahalleleri:[], // yalnızca Kanalizasyon Arıtma'da kullanılır: {ilce, mahalle} nesne dizisi
     besledigiYerler:[],    // dize dizisi: mahalle / sanat yapısı vb.
     // Halk Sağlığı Bilgileri
     manevraOdasiVarMi:"", klorlamaCihaziVarMi:"", klorlamaFaaliyetDurumu:"", korumaAlaniVarMi:"",
@@ -871,7 +872,7 @@ const ALTYAPI_TURLER = [
   {turu:'Su Deposu', kisaAd:'Depo', icon:'🛢️'},
   {turu:'Terfi Merkezi', kisaAd:'İçmesuyu Terfi', icon:'⚙️'},
   {turu:'Atıksu Terfi Merkezi', kisaAd:'Atıksu Terfi', icon:'🌊'},
-  {turu:'Kanalizasyon Arıtma', kisaAd:'Arıtma', icon:'♻️'}
+  {turu:'Kanalizasyon Arıtma', kisaAd:'Atıksu Arıtma Tesisleri', icon:'♻️'}
 ];
 const BINALAR_TURLER = [
   {turu:'Hizmet Binası', kisaAd:'Hizmet Binaları', icon:'🏢'},
@@ -2841,6 +2842,15 @@ function renderMahalleModal(){
       </div>
       <p class="help">İleride bu mahalleye özel başka bilgi/kayıt alanları da buraya eklenecek.</p>
     </div>
+    <div class="pblok">
+      <div class="pblok-title">Atıksu Arıtma</div>
+      ${(()=>{
+        const t = mahalleAritmaTesisi(ilce, mahalle);
+        return t
+          ? `<p class="help" style="margin-top:0;">♻️ Bu mahallenin atıksuyu <b>${esc(t.isim)||'bir Atıksu Arıtma Tesisi'}</b> tarafından arıtılıyor.</p>`
+          : `<p class="help" style="margin-top:0;">Bu mahallenin atıksuyunun arıtıldığı bir tesis kaydı bulunamadı.</p>`;
+      })()}
+    </div>
   `;
 
   const _oncekiPanel = modal.querySelector('.panel');
@@ -2978,10 +2988,12 @@ function renderPanoramaEnvanterTablosu(){
       const md = panoramaMahalle(ilce, m);
       const oz = mahalleTesisOzeti(ilce, m);
       const merkezEtiketi = mahalleMerkezMi(ilce, m) ? ` <span class="help" style="display:inline;font-weight:400;">(merkez)</span>` : '';
+      const aritmaTesisi = mahalleAritmaTesisi(ilce, m);
+      const aritmaEtiketi = aritmaTesisi ? ` <span title="Atıksuyu arıtılıyor: ${esc(aritmaTesisi.isim)||'Atıksu Arıtma Tesisi'}" style="cursor:help;">♻️</span>` : '';
       satirlarHtml += `
         <tr onclick="openMahalleModal('${ilce}','${esc(m)}')" style="cursor:pointer;">
           <td data-label="İlçe">${esc(ilce)}</td>
-          <td data-label="Mahalle" style="font-weight:600;">${esc(m)}${merkezEtiketi}</td>
+          <td data-label="Mahalle" style="font-weight:600;">${esc(m)}${merkezEtiketi}${aritmaEtiketi}</td>
           <td data-label="Nüfus" class="mono">${md.nufus?Number(md.nufus).toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Abone Sayısı" class="mono">${md.aboneSayisi?Number(md.aboneSayisi).toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Kaynak" class="mono">${oz.kaynakAdedi}</td>
@@ -4225,6 +4237,85 @@ function depoKaynakListeHtml(b){
   `;
 }
 
+/* ---- Kanalizasyon Arıtma: hangi mahallelerin atıksuyu arıtıldığı ---- */
+function aritmaMahalleListeHtml(b){
+  const liste = Array.isArray(b.aritmaMahalleleri) ? b.aritmaMahalleleri : [];
+  const ilceSelId = `ar-ilce-${b.id}`;
+  const mahalleSelId = `ar-mahalle-${b.id}`;
+  return `
+    <div class="field">
+      <label>Atıksuyu Arıtılan Mahalleler</label>
+      ${liste.length ? `
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+          ${liste.map((x,i)=>`
+            <span class="badge" style="background:var(--teal-soft);color:var(--teal);display:inline-flex;align-items:center;gap:6px;">
+              ${esc(x.ilce)} / ${esc(x.mahalle)}
+              <button onclick="aritmaMahalleSil('${b.id}',${i})" style="background:none;border:none;color:var(--teal);cursor:pointer;font-weight:700;padding:0;">✕</button>
+            </span>
+          `).join('')}
+        </div>
+      ` : ''}
+      <p class="help" style="margin-top:0;">İlçe merkezine ait tüm mahalleleri tek seferde eklemek için:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        ${PERSONEL_ILCELER.map(il=>`<button class="newbtn" style="padding:8px 12px;font-size:12px;background:var(--indigo);" onclick="aritmaMerkezMahalleleriEkle('${b.id}','${il}')">${il} Merkez Mahalleleri Ekle</button>`).join('')}
+      </div>
+      <p class="help" style="margin-top:0;">Bu tesise dış (taşra) mahallelerden de giriş yapılıyorsa, tek tek buradan ekleyin:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select id="${ilceSelId}" onchange="aritmaMahalleSecenekDoldur('${b.id}')" style="flex:1;min-width:120px;">
+          <option value="">İlçe</option>
+          ${PERSONEL_ILCELER.map(il=>`<option value="${il}">${il}</option>`).join('')}
+        </select>
+        <select id="${mahalleSelId}" style="flex:1;min-width:160px;">
+          <option value="">Önce ilçe seçin</option>
+        </select>
+        <button class="newbtn" style="padding:9px 14px;font-size:12.5px;" onclick="aritmaMahalleEkle('${b.id}', document.getElementById('${ilceSelId}').value, document.getElementById('${mahalleSelId}').value)">Ekle</button>
+      </div>
+    </div>
+  `;
+}
+function aritmaMahalleSecenekDoldur(id){
+  const ilce = document.getElementById(`ar-ilce-${id}`).value;
+  const mahalleSel = document.getElementById(`ar-mahalle-${id}`);
+  const mahalleler = PANORAMA_MAHALLELER[ilce] || [];
+  mahalleSel.innerHTML = `<option value="">Mahalle seçin</option>` + mahalleler.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
+}
+async function aritmaMerkezMahalleleriEkle(id, ilce){
+  const b = DATA.find(x=>x.id===id);
+  if(!b) return;
+  if(!Array.isArray(b.aritmaMahalleleri)) b.aritmaMahalleleri = [];
+  const merkezler = PANORAMA_MERKEZ_MAHALLELER[ilce] || [];
+  merkezler.forEach(m=>{
+    if(!b.aritmaMahalleleri.some(x=>x.ilce===ilce && x.mahalle===m)){
+      b.aritmaMahalleleri.push({ilce, mahalle:m});
+    }
+  });
+  b.updatedAt = Date.now();
+  renderModal(); render();
+  await pushRecord(b);
+}
+async function aritmaMahalleEkle(id, ilce, mahalle){
+  if(!ilce || !mahalle) return;
+  const b = DATA.find(x=>x.id===id);
+  if(!b) return;
+  if(!Array.isArray(b.aritmaMahalleleri)) b.aritmaMahalleleri = [];
+  if(b.aritmaMahalleleri.some(x=>x.ilce===ilce && x.mahalle===mahalle)) return;
+  b.aritmaMahalleleri.push({ilce, mahalle});
+  b.updatedAt = Date.now();
+  renderModal(); render();
+  await pushRecord(b);
+}
+async function aritmaMahalleSil(id, index){
+  const b = DATA.find(x=>x.id===id);
+  if(!b) return;
+  (b.aritmaMahalleleri||[]).splice(index,1);
+  b.updatedAt = Date.now();
+  renderModal(); render();
+  await pushRecord(b);
+}
+function mahalleAritmaTesisi(ilce, mahalle){
+  return DATA.find(x=>!isBlank(x) && x.tesisTuru==='Kanalizasyon Arıtma' && Array.isArray(x.aritmaMahalleleri) && x.aritmaMahalleleri.some(m=>m.ilce===ilce && m.mahalle===mahalle));
+}
+
 function depoListeHtml(b, field, label, placeholder, kaynakHavuzuMu){
   const liste = Array.isArray(b[field]) ? b[field] : [];
   const kaynakSecenekleri = kaynakHavuzuMu
@@ -4300,6 +4391,9 @@ function genelFields(b){
   }
   if(b.tesisTuru === 'Kaynak'){
     html += depoListeHtml(b, 'besledigiTesisYerlesim', 'Beslediği Tesis / Yerleşim', 'Tesis veya yerleşim adı yazın', false);
+  }
+  if(b.tesisTuru === 'Kanalizasyon Arıtma'){
+    html += aritmaMahalleListeHtml(b);
   }
   html += konumFieldHtml(b);
   html += `
@@ -5037,6 +5131,16 @@ function renderTesisSingleReportHtml(b){
     ${satir('Kuyu Bitti', b.kuyuBitti?'Evet':'Hayır')}
   ` : '';
 
+  let aritmaBlok = '';
+  if(b.tesisTuru === 'Kanalizasyon Arıtma' && (b.aritmaMahalleleri||[]).length){
+    aritmaBlok = `
+      <div class="blok" style="grid-column:1 / -1;">
+        <h3>Atıksuyu Arıtılan Mahalleler</h3>
+        ${satir('Mahalleler', b.aritmaMahalleleri.map(x=>`${x.ilce} / ${x.mahalle}`).join(', '))}
+      </div>
+    `;
+  }
+
   let kaynakBlok = '';
   if(b.tesisTuru === 'Kaynak' && (b.besledigiTesisYerlesim||[]).length){
     kaynakBlok = `
@@ -5175,6 +5279,7 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
       ${pompaBlok}
       ${depoBlok}
       ${kaynakBlok}
+      ${aritmaBlok}
       ${HAS_ACIKLAMA[b.tesisTuru] ? `
       <div class="blok" style="grid-column:1 / -1;">
         <h3>Açıklama</h3>
