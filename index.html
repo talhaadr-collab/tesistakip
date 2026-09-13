@@ -4262,7 +4262,7 @@ function aritmaMahalleListeHtml(b){
         ${PERSONEL_ILCELER.map(il=>`<button class="newbtn" style="padding:8px 12px;font-size:12px;background:var(--indigo);" onclick="aritmaMerkezMahalleleriEkle('${b.id}','${il}')">${il} Merkez Mahalleleri Ekle</button>`).join('')}
       </div>
       <p class="help" style="margin-top:0;">Bu tesise dış (taşra) mahallelerden de giriş yapılıyorsa, tek tek buradan ekleyin:</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
         <select id="${ilceSelId}" onchange="aritmaMahalleSecenekDoldur('${b.id}')" style="flex:1;min-width:120px;">
           <option value="">İlçe</option>
           ${PERSONEL_ILCELER.map(il=>`<option value="${il}">${il}</option>`).join('')}
@@ -4271,6 +4271,12 @@ function aritmaMahalleListeHtml(b){
           <option value="">Önce ilçe seçin</option>
         </select>
         <button class="newbtn" style="padding:9px 14px;font-size:12.5px;" onclick="aritmaMahalleEkle('${b.id}', document.getElementById('${ilceSelId}').value, document.getElementById('${mahalleSelId}').value)">Ekle</button>
+      </div>
+      <p class="help" style="margin-top:0;">Havuzdaki 3 ilçe (Çumra, Güneysınır, Akören) dışından, farklı bir ilçe/mahalleden giriş yapılıyorsa, adını elle yazıp ekleyin:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="text" id="${ilceSelId}-elle" placeholder="İlçe adı (örn. Karapınar)" style="flex:1;min-width:120px;">
+        <input type="text" id="${mahalleSelId}-elle" placeholder="Mahalle adı" style="flex:1;min-width:160px;">
+        <button class="newbtn" style="padding:9px 14px;font-size:12.5px;" onclick="aritmaMahalleEkle('${b.id}', document.getElementById('${ilceSelId}-elle').value, document.getElementById('${mahalleSelId}-elle').value); document.getElementById('${ilceSelId}-elle').value=''; document.getElementById('${mahalleSelId}-elle').value='';">Elle Ekle</button>
       </div>
     </div>
   `;
@@ -4296,6 +4302,8 @@ async function aritmaMerkezMahalleleriEkle(id, ilce){
   await pushRecord(b);
 }
 async function aritmaMahalleEkle(id, ilce, mahalle){
+  ilce = (ilce||'').trim().toLocaleUpperCase('tr');
+  mahalle = (mahalle||'').trim().toLocaleUpperCase('tr');
   if(!ilce || !mahalle) return;
   const b = DATA.find(x=>x.id===id);
   if(!b) return;
