@@ -806,6 +806,7 @@ function blank(){
     besledigiKaynaklar:[], // {tip:'havuz'|'elle', tesisId?, ad, debi?} nesne dizisi
     besledigiTesisYerlesim:[], // yalnızca Kaynak'ta kullanılır: dize dizisi (beslediği tesis/yerleşim)
     aritmaMahalleleri:[], // yalnızca Kanalizasyon Arıtma'da kullanılır: {ilce, mahalle} nesne dizisi
+    desarjNoktasi:"", // yalnızca Kanalizasyon Arıtma'da kullanılır
     besledigiYerler:[],    // dize dizisi: mahalle / sanat yapısı vb.
     // Halk Sağlığı Bilgileri
     manevraOdasiVarMi:"", klorlamaCihaziVarMi:"", klorlamaFaaliyetDurumu:"", korumaAlaniVarMi:"",
@@ -4394,6 +4395,8 @@ function genelFields(b){
     html += depoListeHtml(b, 'besledigiTesisYerlesim', 'Beslediği Tesis / Yerleşim', 'Tesis veya yerleşim adı yazın', false);
   }
   if(b.tesisTuru === 'Kanalizasyon Arıtma'){
+    html += `<div class="field"><label>Deşarj Noktası</label>
+      <input type="text" value="${esc(b.desarjNoktasi)}" oninput="updateTextField('${b.id}','desarjNoktasi',this.value)" placeholder="örn. Çarşamba Çayı, KM 4+200"></div>`;
     html += aritmaMahalleListeHtml(b);
   }
   html += konumFieldHtml(b);
@@ -4753,10 +4756,11 @@ function genericTableHtml(rows, turu){
   const specs = specFields(turu);
   const aciklamaVar = !!HAS_ACIKLAMA[turu];
   const siralamaVar = turu === 'Atıksu Terfi Merkezi';
+  const desarjVar = turu === 'Kanalizasyon Arıtma';
   return `
     <table class="rep-tbl">
       <thead><tr>
-        ${siralamaVar?'<th style="width:50px;">Sıra</th>':''}<th>İlçe</th><th>Mahalle</th><th>İsim</th>${specs.map(s=>`<th>${esc(s.label)}</th>`).join('')}${aciklamaVar?`<th>${esc(ACIKLAMA_ETIKETI[turu]||'Açıklama')}</th>`:''}<th>Durum</th><th>Tadilat</th><th>Fotoğraf</th><th>Konum</th>
+        ${siralamaVar?'<th style="width:50px;">Sıra</th>':''}<th>İlçe</th><th>Mahalle</th><th>İsim</th>${specs.map(s=>`<th>${esc(s.label)}</th>`).join('')}${desarjVar?'<th>Deşarj Noktası</th>':''}${aciklamaVar?`<th>${esc(ACIKLAMA_ETIKETI[turu]||'Açıklama')}</th>`:''}<th>Durum</th><th>Tadilat</th><th>Fotoğraf</th><th>Konum</th>
       </tr></thead>
       <tbody>
         ${rows.map((b,i)=>{
@@ -4767,7 +4771,8 @@ function genericTableHtml(rows, turu){
             <td data-label="Mahalle">${esc(b.mahalle)||'—'}</td>
             <td data-label="İsim">${esc(b.isim)||'İsim girilmedi'}</td>
             ${specs.map(s=>`<td data-label="${esc(s.label)}" class="mono">${esc(b[s.key])||'—'}</td>`).join('')}
-            ${aciklamaVar ? `<td data-label="Açıklama">${esc(b.aciklama)||'—'}</td>` : ''}
+            ${desarjVar ? `<td data-label="Deşarj Noktası">${esc(b.desarjNoktasi)||'—'}</td>` : ''}
+            ${aciklamaVar ? `<td data-label="${esc(ACIKLAMA_ETIKETI[turu]||'Açıklama')}">${esc(b.aciklama)||'—'}</td>` : ''}
             <td data-label="Durum">${durumGoster(b)}</td>
             <td data-label="Tadilat">${tadilatBadgeGoster(b)}</td>
             <td data-label="Fotoğraf"><span class="progress-chip">${pp.count} adet</span></td>
@@ -4896,6 +4901,20 @@ function genericReportTable(rows, specs, aciklamaVar){
   </tr>`).join('');
 }
 
+function aritmaReportTable(rows){
+  if(rows.length===0) return `<tr><td colspan="8" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
+  return rows.map(b=>`<tr>
+    <td>${esc(b.ilce)||'—'}</td>
+    <td>${esc(b.mahalle)||'—'}</td>
+    <td>${esc(b.isim)||'—'}</td>
+    <td>${esc(b.desarjNoktasi)||'—'}</td>
+    <td>${(b.aritmaMahalleleri||[]).length ? esc(b.aritmaMahalleleri.map(x=>`${x.ilce} / ${x.mahalle}`).join(', ')) : '—'}</td>
+    <td>${esc(b.aciklama)||'—'}</td>
+    <td>${b.durum==='aktif'?'Aktif':b.durum==='devredisi'?'Devre Dışı':'—'}</td>
+    <td>${b.tadilatIhtiyaci==='evet'?'Var':b.tadilatIhtiyaci==='hayir'?'Yok':'—'}</td>
+  </tr>`).join('');
+}
+
 function kaynakReportTable(rows){
   if(rows.length===0) return `<tr><td colspan="7" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
   return rows.map(b=>`<tr>
@@ -4929,6 +4948,9 @@ function renderTesisReportHtml(filters, r){
   }else if(activeTesisTuru === 'Kaynak'){
     baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Kaynak Adı</th><th style="text-align:right;">Debi</th><th>Beslediği Tesis / Yerleşim</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
     detayGovde = kaynakReportTable(r.rows);
+  }else if(activeTesisTuru === 'Kanalizasyon Arıtma'){
+    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Tesis Adı</th><th>Deşarj Noktası</th><th>Atıksuyu Arıtılan Mahalleler</th><th>Teknik Özellikler</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
+    detayGovde = aritmaReportTable(r.rows);
   }else{
     const specs = specFields(activeTesisTuru);
     const aciklamaVar = !!HAS_ACIKLAMA[activeTesisTuru];
@@ -5134,11 +5156,12 @@ function renderTesisSingleReportHtml(b){
   ` : '';
 
   let aritmaBlok = '';
-  if(b.tesisTuru === 'Kanalizasyon Arıtma' && (b.aritmaMahalleleri||[]).length){
+  if(b.tesisTuru === 'Kanalizasyon Arıtma'){
     aritmaBlok = `
       <div class="blok" style="grid-column:1 / -1;">
-        <h3>Atıksuyu Arıtılan Mahalleler</h3>
-        ${satir('Mahalleler', b.aritmaMahalleleri.map(x=>`${x.ilce} / ${x.mahalle}`).join(', '))}
+        <h3>Deşarj Noktası ve Atıksuyu Arıtılan Mahalleler</h3>
+        ${satir('Deşarj Noktası', b.desarjNoktasi)}
+        ${satir('Mahalleler', (b.aritmaMahalleleri||[]).map(x=>`${x.ilce} / ${x.mahalle}`).join(', '))}
       </div>
     `;
   }
