@@ -1875,7 +1875,7 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
       `}
       <div class="blok" style="grid-column:1 / -1;">
         <h3>Diğer Teknik Özellikler</h3>
-        <div style="font-size:12.5px;line-height:1.6;">${esc(a.teknikOzellikler) || '—'}</div>
+        <div style="font-size:12.5px;line-height:1.6;white-space:pre-line;">${esc(a.teknikOzellikler) || '—'}</div>
       </div>
     </div>
     ${isVehicle && Array.isArray(a.arizalar) && a.arizalar.length ? `
@@ -3081,7 +3081,7 @@ td{padding:8px 10px;border-bottom:1px solid #EEF1EC;}
       <div class="stat-box"><div class="n">${oz.kaynakAdedi}</div><div class="l">Kaynak (Kuyu+Kaynak)</div></div>
       <div class="stat-box"><div class="n">${oz.toplamDebi?oz.toplamDebi.toLocaleString('tr-TR'):'—'}</div><div class="l">Toplam Debi (lt/sn)</div></div>
     </div>
-    ${md.aciklama ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;line-height:1.6;"><b>Açıklama:</b> ${esc(md.aciklama)}</div>` : ''}
+    ${md.aciklama ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;line-height:1.6;white-space:pre-line;"><b>Açıklama:</b> ${esc(md.aciklama)}</div>` : ''}
   </div>
 
   <div class="card">
@@ -3243,7 +3243,7 @@ td{padding:8px 10px;border-bottom:1px solid #EEF1EC;}
       <div class="stat-box"><div class="n">${agg.kaynakAdedi}</div><div class="l">Kaynak (Kuyu+Kaynak)</div></div>
       <div class="stat-box"><div class="n">${agg.toplamDebi?agg.toplamDebi.toLocaleString('tr-TR'):'—'}</div><div class="l">Toplam Debi (lt/sn)</div></div>
     </div>
-    ${p.merkeziAciklama ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;line-height:1.6;"><b>Açıklama:</b> ${esc(p.merkeziAciklama)}</div>` : ''}
+    ${p.merkeziAciklama ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;line-height:1.6;white-space:pre-line;"><b>Açıklama:</b> ${esc(p.merkeziAciklama)}</div>` : ''}
   </div>
 
   <div class="card">
@@ -4910,15 +4910,17 @@ function genericReportTable(rows, specs, aciklamaVar){
 }
 
 function aritmaReportTable(rows){
-  if(rows.length===0) return `<tr><td colspan="8" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
+  if(rows.length===0) return `<tr><td colspan="10" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
   return rows.map(b=>`<tr>
     <td>${esc(b.ilce)||'—'}</td>
     <td>${esc(b.mahalle)||'—'}</td>
     <td>${esc(b.isim)||'—'}</td>
     <td>${esc(b.desarjNoktasi)||'—'}</td>
-    <td>${(b.aritmaMahalleleri||[]).length ? esc(b.aritmaMahalleleri.map(x=>`${x.ilce} / ${x.mahalle}`).join(', ')) : '—'}</td>
-    <td>${esc(b.aciklama)||'—'}</td>
+    <td>${(b.aritmaMahalleleri||[]).length ? b.aritmaMahalleleri.map(x=>esc(`${x.ilce} / ${x.mahalle}`)).join('<br>') : '—'}</td>
+    <td style="white-space:pre-line;">${esc(b.aciklama)||'—'}</td>
     <td>${b.durum==='aktif'?'Aktif':b.durum==='devredisi'?'Devre Dışı':'—'}</td>
+    <td>${b.yapimTarihi?fmtDateShort(b.yapimTarihi):'—'}</td>
+    <td>${b.pasifeAlmaTarihi?fmtDateShort(b.pasifeAlmaTarihi):'—'}</td>
     <td>${b.tadilatIhtiyaci==='evet'?'Var':b.tadilatIhtiyaci==='hayir'?'Yok':'—'}</td>
   </tr>`).join('');
 }
@@ -4957,7 +4959,7 @@ function renderTesisReportHtml(filters, r){
     baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Kaynak Adı</th><th style="text-align:right;">Debi</th><th>Beslediği Tesis / Yerleşim</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
     detayGovde = kaynakReportTable(r.rows);
   }else if(activeTesisTuru === 'Kanalizasyon Arıtma'){
-    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Tesis Adı</th><th>Deşarj Noktası</th><th>Atıksuyu Arıtılan Mahalleler</th><th>Teknik Özellikler</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
+    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Tesis Adı</th><th>Deşarj Noktası</th><th>Atıksuyu Arıtılan Mahalleler</th><th>Teknik Özellikler</th><th>Durum</th><th>Devreye Alma Tarihi</th><th>Pasife Alma Tarihi</th><th>Tadilat İhtiyacı</th>`;
     detayGovde = aritmaReportTable(r.rows);
   }else{
     const specs = specFields(activeTesisTuru);
@@ -5165,11 +5167,17 @@ function renderTesisSingleReportHtml(b){
 
   let aritmaBlok = '';
   if(b.tesisTuru === 'Kanalizasyon Arıtma'){
+    const mahalleListesiHtml = (b.aritmaMahalleleri||[]).length
+      ? b.aritmaMahalleleri.map(x=>`<div style="font-size:12.5px;font-weight:600;padding:3px 0;text-align:right;">${esc(x.ilce)} / ${esc(x.mahalle)}</div>`).join('')
+      : `<div style="font-size:12.5px;color:#9AA79F;text-align:right;">—</div>`;
     aritmaBlok = `
       <div class="blok" style="grid-column:1 / -1;">
         <h3>Deşarj Noktası ve Atıksuyu Arıtılan Mahalleler</h3>
         ${satir('Deşarj Noktası', b.desarjNoktasi)}
-        ${satir('Mahalleler', (b.aritmaMahalleleri||[]).map(x=>`${x.ilce} / ${x.mahalle}`).join(', '))}
+        <div class="bilgi-satir" style="align-items:flex-start;">
+          <span class="k">Mahalleler</span>
+          <span class="v">${mahalleListesiHtml}</span>
+        </div>
       </div>
     `;
   }
@@ -5303,6 +5311,8 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
         ${satir('İlçe', b.ilce)}
         ${satir('Mahalle', b.mahalle)}
         ${satir('Durum', durumMetin)}
+        ${satir('Devreye Alma Tarihi', b.yapimTarihi ? fmtDateShort(b.yapimTarihi) : '')}
+        ${satir('Pasife Alma Tarihi', b.pasifeAlmaTarihi ? fmtDateShort(b.pasifeAlmaTarihi) : '')}
       </div>
       ${!specs.length && ACIKLAMA_ETIKETI[b.tesisTuru]==='Teknik Özellikler' ? '' : `
       <div class="blok">
@@ -5318,7 +5328,7 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
       ${HAS_ACIKLAMA[b.tesisTuru] ? `
       <div class="blok" style="grid-column:1 / -1;">
         <h3>${esc(ACIKLAMA_ETIKETI[b.tesisTuru]||'Açıklama')}</h3>
-        <div style="font-size:12.5px;line-height:1.6;">${esc(b.aciklama) || '—'}</div>
+        <div style="font-size:12.5px;line-height:1.6;white-space:pre-line;">${esc(b.aciklama) || '—'}</div>
       </div>
       ` : ''}
       <div class="blok" style="grid-column:1 / -1;">
