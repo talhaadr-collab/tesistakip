@@ -704,11 +704,12 @@ const secondaryApp = firebase.initializeApp(firebaseConfig, 'Secondary');
 const secondaryAuth = secondaryApp.auth();
 
 /* ================= CONFIG ================= */
-const TESIS_TURLERI = ["Kuyu","Kaynak","Su Deposu","Terfi Merkezi","Atıksu Terfi Merkezi","Malzeme Ambarı","Hizmet Binası","Kanalizasyon Arıtma"];
+const TESIS_TURLERI = ["Kuyu","Kaynak","Su Deposu","Terfi Merkezi","Atıksu Terfi Merkezi","Malzeme Ambarı","Hizmet Binası","Kanalizasyon Arıtma","Tatlı Su Çeşmesi"];
 
 const ISIM_LABEL = {
   "Kuyu":"Kuyu Adı / No",
   "Kaynak":"Kaynak Adı / Pınar Adı",
+  "Tatlı Su Çeşmesi":"Çeşme Adı / No",
   "Su Deposu":"Depo Adı",
   "Terfi Merkezi":"İçmesuyu Terfi Merkezi Adı",
   "Atıksu Terfi Merkezi":"Atıksu Terfi Merkezi Adı",
@@ -757,6 +758,9 @@ const PHOTO_GROUPS = {
     {key:'disaridan',label:'Dışarıdan',count:2},
     {key:'icerden',label:'İçeriden',count:2}
   ],
+  "Tatlı Su Çeşmesi":[
+    {key:'genel',label:'Çeşme Fotoğrafları',count:2}
+  ],
   "Su Deposu":[
     {key:'manevraOdasi',label:'Manevra Odası',count:2},
     {key:'depoIci',label:'Depo İçi',count:2},
@@ -803,6 +807,8 @@ function blank(){
 
     // --- Aşağıdakiler yalnızca Su Deposu (Depo) kayıtlarında kullanılır ---
     adaParsel:"", parselMulkiyeti:"",
+    cadde:"", kapiNo:"", ada:"", parsel:"", hayratSahibi:"", sayacDurumu:"", abonelikDurumu:"", aboneNo:"", aboneIsmi:"", // yalnızca Tatlı Su Çeşmesi
+    parselMulkiyetDurumu:"", parselKurumAdi:"", tahsisDurumu:"", // Kuyu: KOSKİ / DİĞER (+ kurum adı, tahsis VAR/YOK)
     besledigiKaynaklar:[], // {tip:'havuz'|'elle', tesisId?, ad, debi?} nesne dizisi
     besledigiTesisYerlesim:[], // yalnızca Kaynak'ta kullanılır: dize dizisi (beslediği tesis/yerleşim)
     aritmaMahalleleri:[], // yalnızca Kanalizasyon Arıtma'da kullanılır: {ilce, mahalle} nesne dizisi
@@ -874,7 +880,8 @@ const ALTYAPI_TURLER = [
   {turu:'Su Deposu', kisaAd:'Depo', icon:'🛢️'},
   {turu:'Terfi Merkezi', kisaAd:'İçmesuyu Terfi', icon:'⚙️'},
   {turu:'Atıksu Terfi Merkezi', kisaAd:'Atıksu Terfi', icon:'🌊'},
-  {turu:'Kanalizasyon Arıtma', kisaAd:'Atıksu Arıtma Tesisleri', icon:'♻️'}
+  {turu:'Kanalizasyon Arıtma', kisaAd:'Atıksu Arıtma Tesisleri', icon:'♻️'},
+  {turu:'Tatlı Su Çeşmesi', kisaAd:'Tatlı Su Çeşmeleri', icon:'🚰'}
 ];
 const BINALAR_TURLER = [
   {turu:'Hizmet Binası', kisaAd:'Hizmet Binaları', icon:'🏢'},
@@ -2635,9 +2642,10 @@ function panoramaMahalle(ilce, mahalle){
   const p = panoramaIlce(ilce);
   if(!p.mahalleler[mahalle]){
     const varsayilan = (PANORAMA_NUFUS_VARSAYILAN[ilce] && PANORAMA_NUFUS_VARSAYILAN[ilce][mahalle]) || "";
-    p.mahalleler[mahalle] = {nufus: String(varsayilan), aboneSayisi:"", aciklama:""};
+    p.mahalleler[mahalle] = {nufus: String(varsayilan), aboneSayisi:"", aciklama:"", oncekiDurum:""};
   }
   if(p.mahalleler[mahalle].aciklama === undefined) p.mahalleler[mahalle].aciklama = "";
+  if(p.mahalleler[mahalle].oncekiDurum === undefined) p.mahalleler[mahalle].oncekiDurum = "";
   return p.mahalleler[mahalle];
 }
 
@@ -2705,7 +2713,7 @@ function showPanoramaEnvanterSayfasi(){
 }
 
 const PANORAMA_TUR_RENK = {
-  'Kuyu':'#2E7D6B', 'Kaynak':'#1976D2', 'Su Deposu':'#4C5C9C', 'Terfi Merkezi':'#BE7A3B', 'Atıksu Terfi Merkezi':'#1F7A99',
+  'Kuyu':'#2E7D6B', 'Kaynak':'#1976D2', 'Tatlı Su Çeşmesi':'#26A69A', 'Su Deposu':'#4C5C9C', 'Terfi Merkezi':'#BE7A3B', 'Atıksu Terfi Merkezi':'#1F7A99',
   'Kanalizasyon Arıtma':'#3E8E5A', 'Hizmet Binası':'#B5502F', 'Malzeme Ambarı':'#8A6D3B'
 };
 let panoramaHaritaObj = null;
@@ -2839,6 +2847,12 @@ function renderMahalleModal(){
     <div class="meta">${esc(mahalle)} Mahallesi — ${esc(ilce)}</div>
     <div class="pblok">
       <div class="pblok-title">Genel Bilgiler</div>
+      <div class="field"><label>Önceki Durum</label>
+        <select onchange="updateMahalleOncekiDurum('${ilce}','${esc(mahalle)}',this.value)" style="${md.oncekiDurum?'':'background:#FDF0E4;border-color:#E9C9A0;'}">
+          <option value="">Seçiniz</option>
+          ${['Merkez Mahalle','Beldeden Mahalleye','Köyden Mahalleye'].map(s=>`<option value="${s}" ${md.oncekiDurum===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
       <div class="field"><label>Açıklama</label>
         <textarea oninput="updateMahalleAciklama('${ilce}','${esc(mahalle)}',this.value)" placeholder="Bu mahalleyle ilgili notlar">${esc(md.aciklama)}</textarea>
       </div>
@@ -2860,6 +2874,14 @@ function renderMahalleModal(){
   modal.innerHTML = `<div class="rail">${railHtml}</div><div class="panel">${panelHtml}</div>`;
   const _yeniPanel = modal.querySelector('.panel');
   if(_yeniPanel) _yeniPanel.scrollTop = _scrollTop;
+}
+async function updateMahalleOncekiDurum(ilce, mahalle, value){
+  const md = panoramaMahalle(ilce, mahalle);
+  md.oncekiDurum = value;
+  renderMahalleModal();
+  if(currentView === 'panorama-envanter') renderPanoramaEnvanterTablosu();
+  try{ await panoramaRef.doc(ilce).set(PANORAMA_DATA[ilce]); }
+  catch(e){ console.error('Önceki durum kaydedilemedi', e); }
 }
 let mahalleAciklamaSaveTimer = {};
 function updateMahalleAciklama(ilce, mahalle, value){
@@ -2967,6 +2989,7 @@ function renderPanoramaEnvanterTablosu(){
           <tr onclick="openIlceMerkeziModal('${ilce}')" style="cursor:pointer;background:var(--teal-soft);font-weight:600;">
             <td data-label="İlçe">${esc(ilce)}</td>
             <td data-label="Mahalle">📍 İlçe Merkezi <span style="font-weight:400;color:var(--ink-soft);">(${agg.mahalleSayisi} mahalle)</span></td>
+            <td data-label="Önceki Durum">—</td>
             <td data-label="Nüfus" class="mono">${agg.nufus?agg.nufus.toLocaleString('tr-TR'):'—'}</td>
             <td data-label="Abone Sayısı" class="mono">${agg.aboneSayisi?agg.aboneSayisi.toLocaleString('tr-TR'):'—'}</td>
             <td data-label="Kaynak" class="mono">${agg.kaynakAdedi}</td>
@@ -2996,6 +3019,7 @@ function renderPanoramaEnvanterTablosu(){
         <tr onclick="openMahalleModal('${ilce}','${esc(m)}')" style="cursor:pointer;">
           <td data-label="İlçe">${esc(ilce)}</td>
           <td data-label="Mahalle" style="font-weight:600;">${esc(m)}${merkezEtiketi}${aritmaEtiketi}</td>
+          <td data-label="Önceki Durum">${esc(md.oncekiDurum)||'—'}</td>
           <td data-label="Nüfus" class="mono">${md.nufus?Number(md.nufus).toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Abone Sayısı" class="mono">${md.aboneSayisi?Number(md.aboneSayisi).toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Kaynak" class="mono">${oz.kaynakAdedi}</td>
@@ -3020,7 +3044,7 @@ function renderPanoramaEnvanterTablosu(){
   tbl.innerHTML = `
     <table class="rep-tbl">
       <thead><tr>
-        <th>İlçe</th><th>Mahalle</th><th>Nüfus</th><th>Abone Sayısı</th><th>Kaynak (Kuyu+Kaynak)</th><th>Toplam Debi (lt/sn)</th>
+        <th>İlçe</th><th>Mahalle</th><th>Önceki Durum</th><th>Nüfus</th><th>Abone Sayısı</th><th>Kaynak (Kuyu+Kaynak)</th><th>Toplam Debi (lt/sn)</th>
         <th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th><th></th>
       </tr></thead>
       <tbody>${satirlarHtml}</tbody>
@@ -3081,6 +3105,7 @@ td{padding:8px 10px;border-bottom:1px solid #EEF1EC;}
       <div class="stat-box"><div class="n">${oz.kaynakAdedi}</div><div class="l">Kaynak (Kuyu+Kaynak)</div></div>
       <div class="stat-box"><div class="n">${oz.toplamDebi?oz.toplamDebi.toLocaleString('tr-TR'):'—'}</div><div class="l">Toplam Debi (lt/sn)</div></div>
     </div>
+    ${md.oncekiDurum ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;"><b>Önceki Durum:</b> ${esc(md.oncekiDurum)}</div>` : ''}
     ${md.aciklama ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;line-height:1.6;white-space:pre-line;"><b>Açıklama:</b> ${esc(md.aciklama)}</div>` : ''}
   </div>
 
@@ -3305,6 +3330,7 @@ function renderPanoramaEnvanterRaporuHtml(){
         toplamNufus += agg.nufus; toplamAbone += agg.aboneSayisi; toplamKaynak += agg.kaynakAdedi; toplamDebi += agg.toplamDebi;
         satirlar += `<tr style="font-weight:700;background:#E3F0EB;">
           <td>📍 İlçe Merkezi (${agg.mahalleSayisi} mahalle)</td>
+          <td>—</td>
           <td class="num">${agg.nufus?agg.nufus.toLocaleString('tr-TR'):'—'}</td>
           <td class="num">${agg.aboneSayisi?agg.aboneSayisi.toLocaleString('tr-TR'):'—'}</td>
           <td class="num">${agg.kaynakAdedi}</td>
@@ -3331,6 +3357,7 @@ function renderPanoramaEnvanterRaporuHtml(){
       toplamDebi += oz.toplamDebi;
       satirlar += `<tr>
         <td>${esc(m)}${mahalleMerkezMi(ilce,m)?' (merkez)':''}</td>
+        <td>${esc(md.oncekiDurum)||'—'}</td>
         <td class="num">${md.nufus?Number(md.nufus).toLocaleString('tr-TR'):'—'}</td>
         <td class="num">${md.aboneSayisi?Number(md.aboneSayisi).toLocaleString('tr-TR'):'—'}</td>
         <td class="num">${oz.kaynakAdedi}</td>
@@ -3348,7 +3375,7 @@ function renderPanoramaEnvanterRaporuHtml(){
     <div class="card">
       <h2>${esc(ilce)}</h2>
       <table>
-        <thead><tr><th>Mahalle</th><th>Nüfus</th><th>Abone</th><th>Kaynak</th><th>Debi (lt/sn)</th><th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th></tr></thead>
+        <thead><tr><th>Mahalle</th><th>Önceki Durum</th><th>Nüfus</th><th>Abone</th><th>Kaynak</th><th>Debi (lt/sn)</th><th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th></tr></thead>
         <tbody>${satirlar}</tbody>
       </table>
     </div>`;
@@ -4387,6 +4414,59 @@ function genelFields(b){
         <input type="text" value="${esc(b.mahalle)}" oninput="updateTextField('${b.id}','mahalle',this.value)" placeholder="Mahalle"></div>
     </div>
   `;
+  if(b.tesisTuru === 'Tatlı Su Çeşmesi'){
+    html += `
+      <div class="row2">
+        <div class="field"><label>Cadde / Sokak</label>
+          <input type="text" value="${esc(b.cadde)}" oninput="updateTextField('${b.id}','cadde',this.value)" placeholder="Cadde / Sokak"></div>
+        <div class="field"><label>No</label>
+          <input type="text" value="${esc(b.kapiNo)}" oninput="updateTextField('${b.id}','kapiNo',this.value)" placeholder="Kapı / Dış No"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Ada</label>
+          <input type="text" value="${esc(b.ada)}" oninput="updateTextField('${b.id}','ada',this.value)" placeholder="Ada"></div>
+        <div class="field"><label>Parsel</label>
+          <input type="text" value="${esc(b.parsel)}" oninput="updateTextField('${b.id}','parsel',this.value)" placeholder="Parsel"></div>
+      </div>
+      <div class="row2">
+        ${secimAlani(b,'parselMulkiyeti','Parsel Mülkiyet Durumu',['KOSKİ','Maliye','Şahıs','Belediye','Diğer'])}
+        <div class="field"><label>Hayrat Sahibi</label>
+          <input type="text" value="${esc(b.hayratSahibi)}" oninput="updateTextField('${b.id}','hayratSahibi',this.value)" placeholder="Hayrat sahibi"></div>
+      </div>
+      <div class="row2">
+        ${secimAlani(b,'sayacDurumu','Sayaç Durumu',['Var','Yok'])}
+        ${b.sayacDurumu==='Var' ? secimAlani(b,'abonelikDurumu','Abonelik Durumu',['Var','Yok']) : ''}
+      </div>
+    `;
+    if(b.sayacDurumu==='Var' && b.abonelikDurumu==='Var'){
+      html += `
+        <div class="row2">
+          <div class="field"><label>Abone Numarası</label>
+            <input type="text" value="${esc(b.aboneNo)}" oninput="updateTextField('${b.id}','aboneNo',this.value)" placeholder="Abone numarası"></div>
+          <div class="field"><label>Abone İsmi</label>
+            <input type="text" value="${esc(b.aboneIsmi)}" oninput="updateTextField('${b.id}','aboneIsmi',this.value)" placeholder="Abone ismi"></div>
+        </div>
+      `;
+    }
+  }
+  if(b.tesisTuru === 'Kuyu'){
+    html += `
+      <div class="field"><label>Ada/Parsel Numarası</label>
+        <input type="text" value="${esc(b.adaParsel)}" oninput="updateTextField('${b.id}','adaParsel',this.value)" placeholder="örn. 123 Ada / 4 Parsel"></div>
+      <div class="row2">
+        ${secimAlani(b,'parselMulkiyetDurumu','Parsel Mülkiyet Durumu',['KOSKİ','DİĞER'])}
+      </div>
+    `;
+    if(b.parselMulkiyetDurumu === 'DİĞER'){
+      html += `
+        <div class="row2">
+          <div class="field"><label>Kurum Adı</label>
+            <input type="text" value="${esc(b.parselKurumAdi)}" style="text-transform:uppercase;" oninput="updateTextField('${b.id}','parselKurumAdi',this.value.toLocaleUpperCase('tr'))" placeholder="örn. MALİYE HAZİNESİ, VATANDAŞ"></div>
+          ${secimAlani(b,'tahsisDurumu','Tahsis Durumu',['VAR','YOK'])}
+        </div>
+      `;
+    }
+  }
   if(b.tesisTuru === 'Su Deposu'){
     html += `
       <div class="row2">
@@ -4695,6 +4775,7 @@ function renderReportTable(){
 
   if(activeTesisTuru === 'Kuyu') tbl.innerHTML = kuyuTableHtml(rows);
   else if(activeTesisTuru === 'Su Deposu') tbl.innerHTML = depoTableHtml(rows);
+  else if(activeTesisTuru === 'Tatlı Su Çeşmesi') tbl.innerHTML = cesmeTableHtml(rows);
   else tbl.innerHTML = genericTableHtml(rows, activeTesisTuru);
 }
 
@@ -4722,6 +4803,47 @@ function kuyuTableHtml(rows){
             <td data-label="Pompa Gücü" class="mono">${b.pompaGucu?esc(b.pompaGucu)+' kW':'—'}</td>
             <td data-label="Kuyu Derinliği" class="mono">${b.kuyuDerinligi?esc(b.kuyuDerinligi)+' m':'—'}</td>
             <td data-label="Kurulu Pompa Derinliği" class="mono">${esc(b.dinamikSeviye)||'—'}</td>
+            <td data-label="Durum">${durumGoster(b)}</td>
+            <td data-label="Tadilat">${tadilatBadgeGoster(b)}</td>
+            <td data-label="Fotoğraf"><span class="progress-chip">${pp.count} adet</span></td>
+            <td data-label="Konum">${konumGoster(b)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function cesmeSayacMetni(b){
+  if(b.sayacDurumu!=='Var') return b.sayacDurumu||'';
+  return 'Var';
+}
+function cesmeTableHtml(rows){
+  if(rows.length===0) return `<div class="empty-col">Bu kategoride kayıt bulunamadı</div>`;
+  return `
+    <table class="rep-tbl">
+      <thead><tr>
+        <th>İlçe</th><th>Mahalle</th><th>Cadde / Sokak</th><th>No</th><th>Çeşme Adı / No</th><th>Ada</th><th>Parsel</th><th>Parsel Mülkiyet Durumu</th><th>Hayrat Sahibi</th>
+        <th>Sayaç</th><th>Abonelik</th><th>Abone No</th><th>Abone İsmi</th><th>Durum</th><th>Tadilat</th><th>Fotoğraf</th><th>Konum</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(b=>{
+          const pp = photoProgress(b);
+          const abonelikVar = b.sayacDurumu==='Var';
+          return `<tr class="${rowClassFor(b)}" onclick="openModal('${b.id}')">
+            <td data-label="İlçe">${esc(b.ilce)||'—'}</td>
+            <td data-label="Mahalle">${esc(b.mahalle)||'—'}</td>
+            <td data-label="Cadde / Sokak">${esc(b.cadde)||'—'}</td>
+            <td data-label="No">${esc(b.kapiNo)||'—'}</td>
+            <td data-label="Çeşme Adı / No">${esc(b.isim)||'İsim girilmedi'}</td>
+            <td data-label="Ada" class="mono">${esc(b.ada)||'—'}</td>
+            <td data-label="Parsel" class="mono">${esc(b.parsel)||'—'}</td>
+            <td data-label="Parsel Mülkiyet Durumu">${esc(b.parselMulkiyeti)||'—'}</td>
+            <td data-label="Hayrat Sahibi">${esc(b.hayratSahibi)||'—'}</td>
+            <td data-label="Sayaç">${esc(b.sayacDurumu)||'—'}</td>
+            <td data-label="Abonelik">${abonelikVar ? (esc(b.abonelikDurumu)||'—') : '—'}</td>
+            <td data-label="Abone No" class="mono">${abonelikVar && b.abonelikDurumu==='Var' ? (esc(b.aboneNo)||'—') : '—'}</td>
+            <td data-label="Abone İsmi">${abonelikVar && b.abonelikDurumu==='Var' ? (esc(b.aboneIsmi)||'—') : '—'}</td>
             <td data-label="Durum">${durumGoster(b)}</td>
             <td data-label="Tadilat">${tadilatBadgeGoster(b)}</td>
             <td data-label="Fotoğraf"><span class="progress-chip">${pp.count} adet</span></td>
@@ -4925,6 +5047,29 @@ function aritmaReportTable(rows){
   </tr>`).join('');
 }
 
+function cesmeReportTable(rows){
+  if(rows.length===0) return `<tr><td colspan="14" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
+  return rows.map(b=>{
+    const aboneli = b.sayacDurumu==='Var' && b.abonelikDurumu==='Var';
+    return `<tr>
+    <td>${esc(b.ilce)||'—'}</td>
+    <td>${esc(b.mahalle)||'—'}</td>
+    <td>${esc(b.cadde)||'—'}</td>
+    <td>${esc(b.kapiNo)||'—'}</td>
+    <td>${esc(b.isim)||'—'}</td>
+    <td>${esc(b.ada)||'—'}</td>
+    <td>${esc(b.parsel)||'—'}</td>
+    <td>${esc(b.parselMulkiyeti)||'—'}</td>
+    <td>${esc(b.hayratSahibi)||'—'}</td>
+    <td>${esc(b.sayacDurumu)||'—'}</td>
+    <td>${b.sayacDurumu==='Var' ? (esc(b.abonelikDurumu)||'—') : '—'}</td>
+    <td>${aboneli ? (esc(b.aboneNo)||'—') : '—'}</td>
+    <td>${aboneli ? (esc(b.aboneIsmi)||'—') : '—'}</td>
+    <td>${b.durum==='aktif'?'Aktif':b.durum==='devredisi'?'Devre Dışı':'—'}</td>
+  </tr>`;
+  }).join('');
+}
+
 function kaynakReportTable(rows){
   if(rows.length===0) return `<tr><td colspan="7" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
   return rows.map(b=>`<tr>
@@ -4955,6 +5100,9 @@ function renderTesisReportHtml(filters, r){
   }else if(activeTesisTuru === 'Su Deposu'){
     baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Depo Adı</th><th style="text-align:right;">Hacim</th><th style="text-align:right;">Toplam Besleme Debisi</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
     detayGovde = depoReportTable(r.rows);
+  }else if(activeTesisTuru === 'Tatlı Su Çeşmesi'){
+    baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Cadde / Sokak</th><th>No</th><th>Çeşme Adı / No</th><th>Ada</th><th>Parsel</th><th>Parsel Mülkiyet Durumu</th><th>Hayrat Sahibi</th><th>Sayaç</th><th>Abonelik</th><th>Abone No</th><th>Abone İsmi</th><th>Durum</th>`;
+    detayGovde = cesmeReportTable(r.rows);
   }else if(activeTesisTuru === 'Kaynak'){
     baslikSatiri = `<th>İlçe</th><th>Mahalle</th><th>Kaynak Adı</th><th style="text-align:right;">Debi</th><th>Beslediği Tesis / Yerleşim</th><th>Durum</th><th>Tadilat İhtiyacı</th>`;
     detayGovde = kaynakReportTable(r.rows);
@@ -5163,6 +5311,9 @@ function renderTesisSingleReportHtml(b){
   const kuyuBlok = (b.tesisTuru==='Kuyu') ? `
     ${satir('Kuyu Sonda', b.kuyuBitti ? '—' : (b.kuyuSonda?'Evet':'Hayır'))}
     ${satir('Kuyu Bitti', b.kuyuBitti?'Evet':'Hayır')}
+    ${satir('Ada/Parsel Numarası', b.adaParsel)}
+    ${satir('Parsel Mülkiyet Durumu', b.parselMulkiyetDurumu)}
+    ${b.parselMulkiyetDurumu==='DİĞER' ? satir('Kurum Adı', b.parselKurumAdi) + satir('Tahsis Durumu', b.tahsisDurumu) : ''}
   ` : '';
 
   let aritmaBlok = '';
@@ -5178,6 +5329,25 @@ function renderTesisSingleReportHtml(b){
           <span class="k">Mahalleler</span>
           <span class="v">${mahalleListesiHtml}</span>
         </div>
+      </div>
+    `;
+  }
+
+  let cesmeBlok = '';
+  if(b.tesisTuru === 'Tatlı Su Çeşmesi'){
+    const aboneli = b.sayacDurumu==='Var' && b.abonelikDurumu==='Var';
+    cesmeBlok = `
+      <div class="blok" style="grid-column:1 / -1;">
+        <h3>Adres, Parsel ve Abonelik Bilgileri</h3>
+        ${satir('Cadde / Sokak', b.cadde)}
+        ${satir('No', b.kapiNo)}
+        ${satir('Ada', b.ada)}
+        ${satir('Parsel', b.parsel)}
+        ${satir('Parsel Mülkiyet Durumu', b.parselMulkiyeti)}
+        ${satir('Hayrat Sahibi', b.hayratSahibi)}
+        ${satir('Sayaç Durumu', b.sayacDurumu)}
+        ${b.sayacDurumu==='Var' ? satir('Abonelik Durumu', b.abonelikDurumu) : ''}
+        ${aboneli ? satir('Abone Numarası', b.aboneNo) + satir('Abone İsmi', b.aboneIsmi) : ''}
       </div>
     `;
   }
@@ -5314,7 +5484,7 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
         ${satir('Devreye Alma Tarihi', b.yapimTarihi ? fmtDateShort(b.yapimTarihi) : '')}
         ${satir('Pasife Alma Tarihi', b.pasifeAlmaTarihi ? fmtDateShort(b.pasifeAlmaTarihi) : '')}
       </div>
-      ${!specs.length && ACIKLAMA_ETIKETI[b.tesisTuru]==='Teknik Özellikler' ? '' : `
+      ${!specs.length && (ACIKLAMA_ETIKETI[b.tesisTuru]==='Teknik Özellikler' || b.tesisTuru==='Tatlı Su Çeşmesi') ? '' : `
       <div class="blok">
         <h3>Teknik Özellikler</h3>
         ${specs.length ? specs.map(s=>satir(s.label, b[s.key])).join('') : `<div class="bilgi-satir"><span class="k">—</span><span class="v">Bu tür için ek özellik alanı yok</span></div>`}
@@ -5325,6 +5495,7 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
       ${depoBlok}
       ${kaynakBlok}
       ${aritmaBlok}
+      ${cesmeBlok}
       ${HAS_ACIKLAMA[b.tesisTuru] ? `
       <div class="blok" style="grid-column:1 / -1;">
         <h3>${esc(ACIKLAMA_ETIKETI[b.tesisTuru]||'Açıklama')}</h3>
