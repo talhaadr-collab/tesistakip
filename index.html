@@ -2646,6 +2646,8 @@ function panoramaMahalle(ilce, mahalle){
   }
   if(p.mahalleler[mahalle].aciklama === undefined) p.mahalleler[mahalle].aciklama = "";
   if(p.mahalleler[mahalle].oncekiDurum === undefined) p.mahalleler[mahalle].oncekiDurum = "";
+  const _eskiStatu = {'Merkez Mahalle':'Merkez','Beldeden Mahalleye':'Belde','Köyden Mahalleye':'Köy'};
+  if(_eskiStatu[p.mahalleler[mahalle].oncekiDurum]) p.mahalleler[mahalle].oncekiDurum = _eskiStatu[p.mahalleler[mahalle].oncekiDurum];
   return p.mahalleler[mahalle];
 }
 
@@ -2847,10 +2849,10 @@ function renderMahalleModal(){
     <div class="meta">${esc(mahalle)} Mahallesi — ${esc(ilce)}</div>
     <div class="pblok">
       <div class="pblok-title">Genel Bilgiler</div>
-      <div class="field"><label>Önceki Durum</label>
+      <div class="field"><label>Mahalle Statüsü</label>
         <select onchange="updateMahalleOncekiDurum('${ilce}','${esc(mahalle)}',this.value)" style="${md.oncekiDurum?'':'background:#FDF0E4;border-color:#E9C9A0;'}">
           <option value="">Seçiniz</option>
-          ${['Merkez Mahalle','Beldeden Mahalleye','Köyden Mahalleye'].map(s=>`<option value="${s}" ${md.oncekiDurum===s?'selected':''}>${s}</option>`).join('')}
+          ${['Merkez','Belde','Köy'].map(s=>`<option value="${s}" ${md.oncekiDurum===s?'selected':''}>${s}</option>`).join('')}
         </select>
       </div>
       <div class="field"><label>Açıklama</label>
@@ -2933,7 +2935,17 @@ function mahalleTesisOzeti(ilce, mahalle){
     ambarAdedi: sayVe('Malzeme Ambarı')
   };
 }
-let panoramaEnvanterFiltre = {search:'', ilce:'all'};
+let panoramaEnvanterFiltre = {search:'', ilce:'all', statu:'all'};
+function statuEslesiyor(md){
+  const s = panoramaEnvanterFiltre.statu;
+  if(!s || s==='all') return true;
+  if(s==='yok') return !md.oncekiDurum;
+  return md.oncekiDurum === s;
+}
+function statuFiltreAdi(){
+  const s = panoramaEnvanterFiltre.statu;
+  return s==='yok' ? 'Belirtilmemiş' : s;
+}
 let panoramaEnvanterGrupla = true; // merkez mahalleleri "İlçe Merkezi" olarak toplu göster
 
 function renderPanoramaEnvanterTab(body){
@@ -2945,6 +2957,13 @@ function renderPanoramaEnvanterTab(body){
         <option value="all">Tüm İlçeler</option>
         ${PERSONEL_ILCELER.map(il=>`<option value="${il}">${il}</option>`).join('')}
       </select>
+      <select id="pe-statu" onchange="updatePanoramaEnvanterFiltre('statu',this.value)" title="Mahalle Statüsü">
+        <option value="all">Tüm Statüler</option>
+        <option value="Merkez">Merkez</option>
+        <option value="Belde">Belde</option>
+        <option value="Köy">Köy</option>
+        <option value="yok">Belirtilmemiş</option>
+      </select>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap;">
         <input type="checkbox" id="pe-grupla" ${panoramaEnvanterGrupla?'checked':''} onchange="togglePanoramaEnvanterGrupla(this.checked)" style="width:16px;height:16px;">
         Merkez Mahallelerini Grupla
@@ -2954,6 +2973,7 @@ function renderPanoramaEnvanterTab(body){
     <div id="pe-table"></div>
   `;
   document.getElementById('pe-ilce').value = panoramaEnvanterFiltre.ilce;
+  document.getElementById('pe-statu').value = panoramaEnvanterFiltre.statu;
   renderPanoramaEnvanterTablosu();
 }
 function updatePanoramaEnvanterFiltre(key, val){
@@ -2980,7 +3000,7 @@ function renderPanoramaEnvanterTablosu(){
     const tumMahalleler = PANORAMA_MAHALLELER[ilce] || [];
     const merkezSet = new Set(PANORAMA_MERKEZ_MAHALLELER[ilce] || []);
 
-    if(panoramaEnvanterGrupla && merkezSet.size > 0){
+    if(panoramaEnvanterGrupla && panoramaEnvanterFiltre.statu==='all' && merkezSet.size > 0){
       const eslesiyorMu = !q || 'ilçe merkezi'.includes(q) || ilce.toLocaleLowerCase('tr').includes(q);
       if(eslesiyorMu){
         const agg = ilceMerkeziOzeti(ilce);
@@ -2989,7 +3009,7 @@ function renderPanoramaEnvanterTablosu(){
           <tr onclick="openIlceMerkeziModal('${ilce}')" style="cursor:pointer;background:var(--teal-soft);font-weight:600;">
             <td data-label="İlçe">${esc(ilce)}</td>
             <td data-label="Mahalle">📍 İlçe Merkezi <span style="font-weight:400;color:var(--ink-soft);">(${agg.mahalleSayisi} mahalle)</span></td>
-            <td data-label="Önceki Durum">—</td>
+            <td data-label="Mahalle Statüsü">—</td>
             <td data-label="Nüfus" class="mono">${agg.nufus?agg.nufus.toLocaleString('tr-TR'):'—'}</td>
             <td data-label="Abone Sayısı" class="mono">${agg.aboneSayisi?agg.aboneSayisi.toLocaleString('tr-TR'):'—'}</td>
             <td data-label="Kaynak" class="mono">${agg.kaynakAdedi}</td>
@@ -3006,9 +3026,10 @@ function renderPanoramaEnvanterTablosu(){
       }
     }
 
-    const gosterilecekMahalleler = panoramaEnvanterGrupla ? tumMahalleler.filter(m=>!merkezSet.has(m)) : tumMahalleler;
+    const gosterilecekMahalleler = (panoramaEnvanterGrupla && panoramaEnvanterFiltre.statu==='all') ? tumMahalleler.filter(m=>!merkezSet.has(m)) : tumMahalleler;
     gosterilecekMahalleler.forEach(m=>{
       if(q && !m.toLocaleLowerCase('tr').includes(q)) return;
+      if(!statuEslesiyor(panoramaMahalle(ilce, m))) return;
       toplamSatir++;
       const md = panoramaMahalle(ilce, m);
       const oz = mahalleTesisOzeti(ilce, m);
@@ -3019,7 +3040,7 @@ function renderPanoramaEnvanterTablosu(){
         <tr onclick="openMahalleModal('${ilce}','${esc(m)}')" style="cursor:pointer;">
           <td data-label="İlçe">${esc(ilce)}</td>
           <td data-label="Mahalle" style="font-weight:600;">${esc(m)}${merkezEtiketi}${aritmaEtiketi}</td>
-          <td data-label="Önceki Durum">${esc(md.oncekiDurum)||'—'}</td>
+          <td data-label="Mahalle Statüsü">${esc(md.oncekiDurum)||'—'}</td>
           <td data-label="Nüfus" class="mono">${md.nufus?Number(md.nufus).toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Abone Sayısı" class="mono">${md.aboneSayisi?Number(md.aboneSayisi).toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Kaynak" class="mono">${oz.kaynakAdedi}</td>
@@ -3044,7 +3065,7 @@ function renderPanoramaEnvanterTablosu(){
   tbl.innerHTML = `
     <table class="rep-tbl">
       <thead><tr>
-        <th>İlçe</th><th>Mahalle</th><th>Önceki Durum</th><th>Nüfus</th><th>Abone Sayısı</th><th>Kaynak (Kuyu+Kaynak)</th><th>Toplam Debi (lt/sn)</th>
+        <th>İlçe</th><th>Mahalle</th><th>Mahalle Statüsü</th><th>Nüfus</th><th>Abone Sayısı</th><th>Kaynak (Kuyu+Kaynak)</th><th>Toplam Debi (lt/sn)</th>
         <th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th><th></th>
       </tr></thead>
       <tbody>${satirlarHtml}</tbody>
@@ -3105,7 +3126,7 @@ td{padding:8px 10px;border-bottom:1px solid #EEF1EC;}
       <div class="stat-box"><div class="n">${oz.kaynakAdedi}</div><div class="l">Kaynak (Kuyu+Kaynak)</div></div>
       <div class="stat-box"><div class="n">${oz.toplamDebi?oz.toplamDebi.toLocaleString('tr-TR'):'—'}</div><div class="l">Toplam Debi (lt/sn)</div></div>
     </div>
-    ${md.oncekiDurum ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;"><b>Önceki Durum:</b> ${esc(md.oncekiDurum)}</div>` : ''}
+    ${md.oncekiDurum ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;"><b>Mahalle Statüsü:</b> ${esc(md.oncekiDurum)}</div>` : ''}
     ${md.aciklama ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;line-height:1.6;white-space:pre-line;"><b>Açıklama:</b> ${esc(md.aciklama)}</div>` : ''}
   </div>
 
@@ -3315,7 +3336,7 @@ function generateIlceMerkeziRaporu(ilce){
 /* ---- Rapor: tüm ilçe/mahalle envanteri (özet liste) ---- */
 function renderPanoramaEnvanterRaporuHtml(){
   let toplamNufus=0, toplamAbone=0, toplamKaynak=0, toplamDebi=0;
-  const grupla = panoramaEnvanterGrupla;
+  const grupla = panoramaEnvanterGrupla && panoramaEnvanterFiltre.statu==='all';
   const ilceler = panoramaEnvanterFiltre.ilce==='all' ? PERSONEL_ILCELER : [panoramaEnvanterFiltre.ilce];
   const q = (panoramaEnvanterFiltre.search||'').toLocaleLowerCase('tr');
 
@@ -3349,6 +3370,7 @@ function renderPanoramaEnvanterRaporuHtml(){
     const gosterilecek = grupla ? tumMahalleler.filter(m=>!merkezSet.has(m)) : tumMahalleler;
     gosterilecek.forEach(m=>{
       if(q && !m.toLocaleLowerCase('tr').includes(q)) return;
+      if(!statuEslesiyor(panoramaMahalle(ilce, m))) return;
       const md = panoramaMahalle(ilce, m);
       const oz = mahalleTesisOzeti(ilce, m);
       toplamNufus += Number(md.nufus)||0;
@@ -3375,7 +3397,7 @@ function renderPanoramaEnvanterRaporuHtml(){
     <div class="card">
       <h2>${esc(ilce)}</h2>
       <table>
-        <thead><tr><th>Mahalle</th><th>Önceki Durum</th><th>Nüfus</th><th>Abone</th><th>Kaynak</th><th>Debi (lt/sn)</th><th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th></tr></thead>
+        <thead><tr><th>Mahalle</th><th>Mahalle Statüsü</th><th>Nüfus</th><th>Abone</th><th>Kaynak</th><th>Debi (lt/sn)</th><th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th></tr></thead>
         <tbody>${satirlar}</tbody>
       </table>
     </div>`;
@@ -3409,7 +3431,8 @@ td.num{text-align:right;font-family:'IBM Plex Mono',monospace;}
   <h1>Bölge Mahalle Envanteri</h1>
   <div class="meta">
     ${panoramaEnvanterFiltre.ilce==='all' ? 'Çumra, Güneysınır, Akören' : esc(panoramaEnvanterFiltre.ilce)} ·
-    Görünüm: ${panoramaEnvanterGrupla ? 'Merkez mahalleleri gruplu (İlçe Merkezi)' : 'Tüm mahalleler ayrı ayrı'}
+    Görünüm: ${(panoramaEnvanterGrupla && panoramaEnvanterFiltre.statu==='all') ? 'Merkez mahalleleri gruplu (İlçe Merkezi)' : 'Tüm mahalleler ayrı ayrı'}
+    ${panoramaEnvanterFiltre.statu!=='all' ? ' · Mahalle Statüsü: '+esc(statuFiltreAdi()) : ''}
     ${panoramaEnvanterFiltre.search ? ' · Arama: "'+esc(panoramaEnvanterFiltre.search)+'"' : ''}
     · Oluşturma Tarihi: ${fmtDate(Date.now())}
   </div>
