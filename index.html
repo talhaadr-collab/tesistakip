@@ -785,6 +785,7 @@ const PHOTO_GROUPS = {
   ]
 };
 
+const PARSEL_TURLERI = ['Kuyu','Kaynak','Terfi Merkezi','Atıksu Terfi Merkezi','Kanalizasyon Arıtma'];
 const HAS_ACIKLAMA = {"Hizmet Binası":true,"Kanalizasyon Arıtma":true};
 const ACIKLAMA_ETIKETI = {"Hizmet Binası":"Açıklama","Kanalizasyon Arıtma":"Teknik Özellikler"};
 
@@ -808,7 +809,8 @@ function blank(){
     // --- Aşağıdakiler yalnızca Su Deposu (Depo) kayıtlarında kullanılır ---
     adaParsel:"", parselMulkiyeti:"",
     cadde:"", kapiNo:"", ada:"", parsel:"", hayratSahibi:"", sayacDurumu:"", abonelikDurumu:"", aboneNo:"", aboneIsmi:"", // yalnızca Tatlı Su Çeşmesi
-    parselMulkiyetDurumu:"", parselKurumAdi:"", tahsisDurumu:"", // Kuyu: KOSKİ / DİĞER (+ kurum adı, tahsis VAR/YOK)
+    parselMulkiyetDurumu:"", parselKurumAdi:"", tahsisDurumu:"", // Kuyu, Kaynak, İçmesuyu/Atıksu Terfi, Atıksu Arıtma
+    kuyuScada:"", kuyuScadaDurum:"", kuyuDebimetre:"", kuyuBasincTransmitteri:"", // Kuyu SCADA // Kuyu: KOSKİ / DİĞER (+ kurum adı, tahsis VAR/YOK)
     besledigiKaynaklar:[], // {tip:'havuz'|'elle', tesisId?, ad, debi?} nesne dizisi
     besledigiTesisYerlesim:[], // yalnızca Kaynak'ta kullanılır: dize dizisi (beslediği tesis/yerleşim)
     aritmaMahalleleri:[], // yalnızca Kanalizasyon Arıtma'da kullanılır: {ilce, mahalle} nesne dizisi
@@ -3013,7 +3015,7 @@ function renderPanoramaEnvanterTablosu(){
             <td data-label="Nüfus" class="mono">${agg.nufus?agg.nufus.toLocaleString('tr-TR'):'—'}</td>
             <td data-label="Abone Sayısı" class="mono">${agg.aboneSayisi?agg.aboneSayisi.toLocaleString('tr-TR'):'—'}</td>
             <td data-label="Kaynak" class="mono">${agg.kaynakAdedi}</td>
-            <td data-label="Toplam Debi" class="mono">${agg.toplamDebi?agg.toplamDebi.toLocaleString('tr-TR'):'—'}</td>
+            <td data-label="Maksimum Toplam Debi" class="mono">${agg.toplamDebi?agg.toplamDebi.toLocaleString('tr-TR'):'—'}</td>
             <td data-label="Depo" class="mono">${agg.depoAdedi}</td>
             <td data-label="İçmesuyu Terfi" class="mono">${agg.icmesuyuTerfiAdedi}</td>
             <td data-label="Atıksu Terfi" class="mono">${agg.atiksuTerfiAdedi}</td>
@@ -3044,7 +3046,7 @@ function renderPanoramaEnvanterTablosu(){
           <td data-label="Nüfus" class="mono">${md.nufus?Number(md.nufus).toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Abone Sayısı" class="mono">${md.aboneSayisi?Number(md.aboneSayisi).toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Kaynak" class="mono">${oz.kaynakAdedi}</td>
-          <td data-label="Toplam Debi" class="mono">${oz.toplamDebi?oz.toplamDebi.toLocaleString('tr-TR'):'—'}</td>
+          <td data-label="Maksimum Toplam Debi" class="mono">${oz.toplamDebi?oz.toplamDebi.toLocaleString('tr-TR'):'—'}</td>
           <td data-label="Depo" class="mono">${oz.depoAdedi}</td>
           <td data-label="İçmesuyu Terfi" class="mono">${oz.icmesuyuTerfiAdedi}</td>
           <td data-label="Atıksu Terfi" class="mono">${oz.atiksuTerfiAdedi}</td>
@@ -3065,7 +3067,7 @@ function renderPanoramaEnvanterTablosu(){
   tbl.innerHTML = `
     <table class="rep-tbl">
       <thead><tr>
-        <th>İlçe</th><th>Mahalle</th><th>Mahalle Statüsü</th><th>Nüfus</th><th>Abone Sayısı</th><th>Kaynak (Kuyu+Kaynak)</th><th>Toplam Debi (lt/sn)</th>
+        <th>İlçe</th><th>Mahalle</th><th>Mahalle Statüsü</th><th>Nüfus</th><th>Abone Sayısı</th><th>Kaynak (Kuyu+Kaynak)</th><th>MAKSİMUM TOPLAM DEBİ (LT/SN)</th>
         <th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th><th></th>
       </tr></thead>
       <tbody>${satirlarHtml}</tbody>
@@ -3124,7 +3126,7 @@ td{padding:8px 10px;border-bottom:1px solid #EEF1EC;}
       <div class="stat-box"><div class="n">${md.nufus?Number(md.nufus).toLocaleString('tr-TR'):'—'}</div><div class="l">Nüfus</div></div>
       <div class="stat-box"><div class="n">${md.aboneSayisi?Number(md.aboneSayisi).toLocaleString('tr-TR'):'—'}</div><div class="l">Abone Sayısı</div></div>
       <div class="stat-box"><div class="n">${oz.kaynakAdedi}</div><div class="l">Kaynak (Kuyu+Kaynak)</div></div>
-      <div class="stat-box"><div class="n">${oz.toplamDebi?oz.toplamDebi.toLocaleString('tr-TR'):'—'}</div><div class="l">Toplam Debi (lt/sn)</div></div>
+      <div class="stat-box"><div class="n">${oz.toplamDebi?oz.toplamDebi.toLocaleString('tr-TR'):'—'}</div><div class="l">MAKSİMUM TOPLAM DEBİ (LT/SN)</div></div>
     </div>
     ${md.oncekiDurum ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;"><b>Mahalle Statüsü:</b> ${esc(md.oncekiDurum)}</div>` : ''}
     ${md.aciklama ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;line-height:1.6;white-space:pre-line;"><b>Açıklama:</b> ${esc(md.aciklama)}</div>` : ''}
@@ -3287,7 +3289,7 @@ td{padding:8px 10px;border-bottom:1px solid #EEF1EC;}
       <div class="stat-box"><div class="n">${agg.nufus?agg.nufus.toLocaleString('tr-TR'):'—'}</div><div class="l">Nüfus</div></div>
       <div class="stat-box"><div class="n">${agg.aboneSayisi?agg.aboneSayisi.toLocaleString('tr-TR'):'—'}</div><div class="l">Abone Sayısı</div></div>
       <div class="stat-box"><div class="n">${agg.kaynakAdedi}</div><div class="l">Kaynak (Kuyu+Kaynak)</div></div>
-      <div class="stat-box"><div class="n">${agg.toplamDebi?agg.toplamDebi.toLocaleString('tr-TR'):'—'}</div><div class="l">Toplam Debi (lt/sn)</div></div>
+      <div class="stat-box"><div class="n">${agg.toplamDebi?agg.toplamDebi.toLocaleString('tr-TR'):'—'}</div><div class="l">MAKSİMUM TOPLAM DEBİ (LT/SN)</div></div>
     </div>
     ${p.merkeziAciklama ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF1EC;font-size:13px;line-height:1.6;white-space:pre-line;"><b>Açıklama:</b> ${esc(p.merkeziAciklama)}</div>` : ''}
   </div>
@@ -3397,7 +3399,7 @@ function renderPanoramaEnvanterRaporuHtml(){
     <div class="card">
       <h2>${esc(ilce)}</h2>
       <table>
-        <thead><tr><th>Mahalle</th><th>Mahalle Statüsü</th><th>Nüfus</th><th>Abone</th><th>Kaynak</th><th>Debi (lt/sn)</th><th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th></tr></thead>
+        <thead><tr><th>Mahalle</th><th>Mahalle Statüsü</th><th>Nüfus</th><th>Abone</th><th>Kaynak</th><th>MAKSİMUM TOPLAM DEBİ (LT/SN)</th><th>Depo</th><th>İçmesuyu Terfi</th><th>Atıksu Terfi</th><th>Arıtma</th><th>Bina</th><th>Ambar</th></tr></thead>
         <tbody>${satirlar}</tbody>
       </table>
     </div>`;
@@ -3443,7 +3445,7 @@ td.num{text-align:right;font-family:'IBM Plex Mono',monospace;}
       <div class="stat-box"><div class="n">${toplamNufus.toLocaleString('tr-TR')}</div><div class="l">Toplam Nüfus</div></div>
       <div class="stat-box"><div class="n">${toplamAbone.toLocaleString('tr-TR')}</div><div class="l">Toplam Abone</div></div>
       <div class="stat-box"><div class="n">${toplamKaynak}</div><div class="l">Toplam Kaynak (Kuyu+Kaynak)</div></div>
-      <div class="stat-box"><div class="n">${toplamDebi.toLocaleString('tr-TR')}</div><div class="l">Toplam Debi (lt/sn)</div></div>
+      <div class="stat-box"><div class="n">${toplamDebi.toLocaleString('tr-TR')}</div><div class="l">MAKSİMUM TOPLAM DEBİ (LT/SN)</div></div>
     </div>
   </div>
 
@@ -4472,7 +4474,7 @@ function genelFields(b){
       `;
     }
   }
-  if(b.tesisTuru === 'Kuyu'){
+  if(PARSEL_TURLERI.includes(b.tesisTuru)){
     html += `
       <div class="field"><label>Ada/Parsel Numarası</label>
         <input type="text" value="${esc(b.adaParsel)}" oninput="updateTextField('${b.id}','adaParsel',this.value)" placeholder="örn. 123 Ada / 4 Parsel"></div>
@@ -4486,6 +4488,22 @@ function genelFields(b){
           <div class="field"><label>Kurum Adı</label>
             <input type="text" value="${esc(b.parselKurumAdi)}" style="text-transform:uppercase;" oninput="updateTextField('${b.id}','parselKurumAdi',this.value.toLocaleUpperCase('tr'))" placeholder="örn. MALİYE HAZİNESİ, VATANDAŞ"></div>
           ${secimAlani(b,'tahsisDurumu','Tahsis Durumu',['VAR','YOK'])}
+        </div>
+      `;
+    }
+  }
+  if(b.tesisTuru === 'Kuyu'){
+    html += `
+      <div class="row2">
+        ${secimAlani(b,'kuyuScada','SCADA Var mı?',['Var','Yok'])}
+        ${b.kuyuScada==='Var' ? secimAlani(b,'kuyuScadaDurum','SCADA Durumu',['Aktif','Pasif']) : ''}
+      </div>
+    `;
+    if(b.kuyuScada==='Var'){
+      html += `
+        <div class="row2">
+          ${secimAlani(b,'kuyuDebimetre','Debimetre Var mı?',['Var','Yok'])}
+          ${secimAlani(b,'kuyuBasincTransmitteri','Basınç Transmitteri Var mı?',['Var','Yok'])}
         </div>
       `;
     }
@@ -5334,9 +5352,17 @@ function renderTesisSingleReportHtml(b){
   const kuyuBlok = (b.tesisTuru==='Kuyu') ? `
     ${satir('Kuyu Sonda', b.kuyuBitti ? '—' : (b.kuyuSonda?'Evet':'Hayır'))}
     ${satir('Kuyu Bitti', b.kuyuBitti?'Evet':'Hayır')}
-    ${satir('Ada/Parsel Numarası', b.adaParsel)}
-    ${satir('Parsel Mülkiyet Durumu', b.parselMulkiyetDurumu)}
-    ${b.parselMulkiyetDurumu==='DİĞER' ? satir('Kurum Adı', b.parselKurumAdi) + satir('Tahsis Durumu', b.tahsisDurumu) : ''}
+    ${satir('SCADA Var mı?', b.kuyuScada)}
+    ${b.kuyuScada==='Var' ? satir('SCADA Durumu', b.kuyuScadaDurum) + satir('Debimetre Var mı?', b.kuyuDebimetre) + satir('Basınç Transmitteri Var mı?', b.kuyuBasincTransmitteri) : ''}
+  ` : '';
+
+  const parselBlok = PARSEL_TURLERI.includes(b.tesisTuru) ? `
+    <div class="blok" style="grid-column:1 / -1;">
+      <h3>Ada/Parsel ve Mülkiyet</h3>
+      ${satir('Ada/Parsel Numarası', b.adaParsel)}
+      ${satir('Parsel Mülkiyet Durumu', b.parselMulkiyetDurumu)}
+      ${b.parselMulkiyetDurumu==='DİĞER' ? satir('Kurum Adı', b.parselKurumAdi) + satir('Tahsis Durumu', b.tahsisDurumu) : ''}
+    </div>
   ` : '';
 
   let aritmaBlok = '';
@@ -5519,6 +5545,7 @@ body{font-family:'Inter',sans-serif;color:#16302B;margin:0;padding:32px;backgrou
       ${kaynakBlok}
       ${aritmaBlok}
       ${cesmeBlok}
+      ${parselBlok}
       ${HAS_ACIKLAMA[b.tesisTuru] ? `
       <div class="blok" style="grid-column:1 / -1;">
         <h3>${esc(ACIKLAMA_ETIKETI[b.tesisTuru]||'Açıklama')}</h3>
