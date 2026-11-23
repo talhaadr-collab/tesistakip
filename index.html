@@ -478,6 +478,7 @@ header p{margin:1px 0 0;font-size:11px;color:#B9C9C2;}
     </div>
 
     <div class="dash-wrap" id="dashView" style="display:none;">
+      <button id="dashBack" onclick="showDashboard()" style="display:none;background:none;border:none;color:var(--teal);font-weight:600;font-size:13.5px;cursor:pointer;padding:0;margin-bottom:6px;">← Altyapı Tesisleri</button>
       <h2 class="disp" style="margin:8px 0 20px;font-size:20px;" id="dashTitle">Altyapı Tesisleri Özeti</h2>
       <div class="dash-grid" id="dashGrid"></div>
     </div>
@@ -897,14 +898,19 @@ let pendingEditId = null;
 let reportFilters = {search:'', turu:'all', tadilat:'all', ilce:'all', durum:'all'};
 
 const ALTYAPI_TURLER = [
-  {turu:'Kuyu', kisaAd:'Kuyu', icon:'💧'},
+  {turu:'Kuyu', kisaAd:'İçmesuyu Kuyuları', icon:'💧'},
   {turu:'Kaynak', kisaAd:'Kaynaklar', icon:'💦'},
-  {turu:'Su Deposu', kisaAd:'Depo', icon:'🛢️'},
-  {turu:'Terfi Merkezi', kisaAd:'İçmesuyu Terfi', icon:'⚙️'},
-  {turu:'Atıksu Terfi Merkezi', kisaAd:'Atıksu Terfi', icon:'🌊'},
+  {turu:'Su Deposu', kisaAd:'İçmesuyu Deposu', icon:'🛢️'},
+  {turu:'Terfi Merkezi', kisaAd:'İçmesuyu Terfi Merkezleri', icon:'⚙️'},
+  {turu:'Atıksu Terfi Merkezi', kisaAd:'Atıksu Terfi Merkezleri', icon:'🌊'},
   {turu:'Kanalizasyon Arıtma', kisaAd:'Atıksu Arıtma Tesisleri', icon:'♻️'},
   {turu:'Tatlı Su Çeşmesi', kisaAd:'Tatlı Su Çeşmeleri', icon:'🚰'}
 ];
+const ALTYAPI_GRUPLARI = [
+  {key:'icmesuyu', ad:'İçme Suyu', icon:'💧', turler:['Kuyu','Kaynak','Su Deposu','Terfi Merkezi','Tatlı Su Çeşmesi']},
+  {key:'atiksu', ad:'Atıksu', icon:'🌊', turler:['Atıksu Terfi Merkezi','Kanalizasyon Arıtma']}
+];
+let currentAltyapiGrup = null;
 const BINALAR_TURLER = [
   {turu:'Hizmet Binası', kisaAd:'Hizmet Binaları', icon:'🏢'},
   {turu:'Malzeme Ambarı', kisaAd:'Malzeme Ambarı', icon:'📦'},
@@ -943,16 +949,32 @@ function hideAllViews(){
   document.getElementById('toolbarActionsPersonel').style.display = 'none';
   document.getElementById('toolbarActionsArac').style.display = 'none';
   document.getElementById('toolbarActionsPanorama').style.display = 'none';
+  const _db = document.getElementById('dashBack'); if(_db) _db.style.display = 'none';
 }
 function showDashboard(){
   if(!izniVar('altyapi')){ showPlaceholder('Altyapı Tesisleri','🔧'); return; }
   currentView = 'dashboard';
   currentSection = 'altyapi';
+  currentAltyapiGrup = null;
   currentDashTurler = ALTYAPI_TURLER;
   activeTesisTuru = null;
   hideAllViews();
   document.getElementById('dashView').style.display = '';
   document.getElementById('dashTitle').textContent = 'Altyapı Tesisleri Özeti';
+  setActiveNav('altyapi');
+  renderDashboard();
+}
+function showAltyapiGrup(key){
+  const g = ALTYAPI_GRUPLARI.find(x=>x.key===key);
+  if(!g) return;
+  currentView = 'dashboard';
+  currentSection = 'altyapi';
+  currentAltyapiGrup = key;
+  currentDashTurler = ALTYAPI_TURLER.filter(m=>g.turler.includes(m.turu));
+  activeTesisTuru = null;
+  hideAllViews();
+  document.getElementById('dashView').style.display = '';
+  document.getElementById('dashTitle').textContent = g.ad + ' Özeti';
   setActiveNav('altyapi');
   renderDashboard();
 }
@@ -3785,6 +3807,28 @@ function initKullaniciListener(){
 function renderDashboard(){
   const grid = document.getElementById('dashGrid');
   if(!grid) return;
+  const geriBtn = document.getElementById('dashBack');
+  if(geriBtn) geriBtn.style.display = (currentSection==='altyapi' && currentAltyapiGrup) ? '' : 'none';
+  if(currentSection==='altyapi' && !currentAltyapiGrup){
+    grid.innerHTML = ALTYAPI_GRUPLARI.map(g=>{
+      const items = DATA.filter(b=>!isBlank(b) && g.turler.includes(b.tesisTuru));
+      const aktif = items.filter(b=>b.durum==='aktif').length;
+      const devredisi = items.filter(b=>b.durum==='devredisi').length;
+      const altlar = ALTYAPI_TURLER.filter(m=>g.turler.includes(m.turu)).map(m=>m.kisaAd).join(' · ');
+      return `
+      <div class="dash-card" onclick="showAltyapiGrup('${g.key}')">
+        <div class="ic-wrap">${g.icon}</div>
+        <div class="lbl">${g.ad}</div>
+        <div class="total">${items.length} Kayıt</div>
+        <div class="split">
+          <span style="color:var(--green);">✓ ${aktif} Aktif</span>
+          <span style="color:var(--red);">⚠ ${devredisi} Devre Dışı</span>
+        </div>
+        <div class="help" style="margin-top:10px;">${altlar}</div>
+      </div>`;
+    }).join('');
+    return;
+  }
   grid.innerHTML = currentDashTurler.map(m=>{
     const items = DATA.filter(b=>!isBlank(b) && b.tesisTuru===m.turu);
     const toplam = items.length;
