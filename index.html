@@ -574,7 +574,7 @@ header p{margin:1px 0 0;font-size:11px;color:#B9C9C2;}
 </div>
 
 <div class="overlay" id="prOverlay" onmousedown="if(event.target===this) closePersonelReportModal()">
-  <div class="yr-modal" onmousedown="event.stopPropagation()">
+  <div class="yr-modal" style="max-height:92vh;overflow-y:auto;" onmousedown="event.stopPropagation()">
     <div class="yr-modal-head">
       <h3 class="disp">Personel Raporu</h3>
       <button class="close-x" onclick="closePersonelReportModal()">✕</button>
@@ -595,6 +595,16 @@ header p{margin:1px 0 0;font-size:11px;color:#B9C9C2;}
         <select id="pr-gorev">
           <option value="all">Tümü</option>
         </select>
+      </div>
+      <div class="field"><label>Genel Özette Gösterilecek Dağılımlar</label>
+        <div id="pr-dagilimlar" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
+      </div>
+      <div class="field"><label>Detaylı Listede Görünecek Bilgiler</label>
+        <div style="margin-bottom:8px;font-size:12.5px;">
+          <a href="#" onclick="prKolonTumu(true);return false;" style="color:var(--teal);font-weight:600;">Tümünü Seç</a> ·
+          <a href="#" onclick="prKolonTumu(false);return false;" style="color:var(--teal);font-weight:600;">Temizle</a>
+        </div>
+        <div id="pr-kolonlar" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
       </div>
       <button class="primary-btn" style="width:100%;" onclick="generatePersonelReport()">Rapor Oluştur</button>
     </div>
@@ -2403,6 +2413,27 @@ function initPersonelListener(){
 }
 
 /* ---- Personel Raporu ---- */
+const PERSONEL_DAGILIMLAR = [
+  {key:'gorev', label:'Görev'},
+  {key:'ilce', label:'Çalıştığı İlçe'},
+  {key:'kadro', label:'Kadro Unvanı'}
+];
+const PERSONEL_RAPOR_KOLONLARI = [
+  {key:'sicilNo', label:'Sicil No', varsayilan:true, deger:p=>p.sicilNo},
+  {key:'tcKimlik', label:'TC Kimlik No', varsayilan:true, deger:p=>p.tcKimlik},
+  {key:'adSoyad', label:'Ad Soyad', varsayilan:true, deger:p=>[p.isim,p.soyisim].filter(Boolean).join(' ')},
+  {key:'kadroUnvani', label:'Kadro Unvanı', varsayilan:true, deger:p=>p.kadroUnvani},
+  {key:'gorevi', label:'Görevi', varsayilan:true, deger:p=>p.gorevi},
+  {key:'ilce', label:'Çalıştığı İlçe', varsayilan:true, deger:p=>p.ilce},
+  {key:'telefon', label:'Telefon', varsayilan:true, deger:p=>p.telefon},
+  {key:'kanGrubu', label:'Kan Grubu', varsayilan:true, deger:p=>p.kanGrubu},
+  {key:'dogumTarihi', label:'Doğum Tarihi', varsayilan:false, deger:p=>p.dogumTarihi ? fmtDateShort(new Date(p.dogumTarihi).getTime()) : ''},
+  {key:'adres', label:'Adres', varsayilan:false, deger:p=>p.adres},
+  {key:'ehliyetSinifi', label:'Ehliyet Sınıfı', varsayilan:false, deger:p=>p.ehliyetSinifi},
+  {key:'mezuniyet', label:'Mezuniyet', varsayilan:false, deger:p=>p.mezuniyet},
+  {key:'ustalikDurumu', label:'Ustalık / Kalfalık Durumu', varsayilan:false, deger:p=>p.ustalikDurumu},
+  {key:'meslekiBelgeler', label:'Mesleki Yeterlilik Belgeleri', varsayilan:false, deger:p=>p.meslekiBelgeler}
+];
 function openPersonelReport(){
   try{
     const ilceSel = document.getElementById('pr-ilce');
@@ -2411,11 +2442,19 @@ function openPersonelReport(){
     ilceSel.innerHTML = `<option value="all">Tüm İlçeler</option>` + PERSONEL_ILCELER.map(il=>`<option value="${il}">${il}</option>`).join('');
     kadroSel.innerHTML = `<option value="all">Tümü</option>` + KADRO_UNVANLARI.map(k=>`<option value="${k}">${k}</option>`).join('');
     gorevSel.innerHTML = `<option value="all">Tümü</option>` + distinctPersonelValues('gorevi').map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+    const cbStil = 'display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-weight:500;font-size:13px;color:var(--ink);';
+    document.getElementById('pr-dagilimlar').innerHTML = PERSONEL_DAGILIMLAR.map(d=>`
+      <label style="${cbStil}"><input type="checkbox" class="pr-dagilim-cb" value="${d.key}" checked style="width:16px;height:16px;flex:none;"> ${d.label}</label>`).join('');
+    document.getElementById('pr-kolonlar').innerHTML = PERSONEL_RAPOR_KOLONLARI.map(k=>`
+      <label style="${cbStil}"><input type="checkbox" class="pr-kolon-cb" value="${k.key}" ${k.varsayilan?'checked':''} style="width:16px;height:16px;flex:none;"> ${k.label}</label>`).join('');
     document.getElementById('prOverlay').classList.add('open');
   }catch(e){
     console.error('Rapor penceresi açılamadı', e);
     alert('Rapor penceresi açılırken bir hata oluştu: ' + e.message);
   }
+}
+function prKolonTumu(durum){
+  document.querySelectorAll('.pr-kolon-cb').forEach(cb=>{ cb.checked = durum; });
 }
 function closePersonelReportModal(){
   document.getElementById('prOverlay').classList.remove('open');
@@ -2463,17 +2502,25 @@ function renderPersonelReportHtml(filters, r){
     return entries.map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
   }
 
+  const secili = PERSONEL_RAPOR_KOLONLARI.filter(k=> (filters.kolonlar||[]).includes(k.key));
+  const detayBaslik = secili.map(k=>`<th>${esc(k.label)}</th>`).join('');
   const detaySatirlari = r.rows.map(p=>`
-    <tr>
-      <td>${esc(p.sicilNo)||'—'}</td>
-      <td>${p.tcKimlik ? '***'+esc(p.tcKimlik.slice(-4)) : '—'}</td>
-      <td>${esc(p.isim)||'—'} ${esc(p.soyisim)||''}</td>
-      <td>${esc(p.kadroUnvani)||'—'}</td>
-      <td>${esc(p.gorevi)||'—'}</td>
-      <td>${esc(p.ilce)||'—'}</td>
-      <td>${esc(p.telefon)||'—'}</td>
-      <td>${esc(p.kanGrubu)||'—'}</td>
-    </tr>`).join('') || `<tr><td colspan="8" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
+    <tr>${secili.map(k=>`<td style="${(k.key==='adres'||k.key==='meslekiBelgeler')?'white-space:pre-line;':''}">${esc(k.deger(p))||'—'}</td>`).join('')}</tr>`).join('')
+    || `<tr><td colspan="${secili.length||1}" class="empty">Filtreyle eşleşen kayıt bulunamadı</td></tr>`;
+
+  const dag = filters.dagilimlar || [];
+  const dagKart = (baslik, ilkBaslik, obj) => `
+    <div class="card">
+      <h2>${baslik}</h2>
+      <table><thead><tr><th>${ilkBaslik}</th><th style="text-align:right;">Adet</th></tr></thead>
+        <tbody>${sayacTablosu(obj)}</tbody>
+      </table>
+    </div>`;
+  const dagilimHtml = [
+    dag.includes('gorev') ? dagKart('Görevlere Göre Dağılım','Görev', r.gorevSayaclari) : '',
+    dag.includes('ilce') ? dagKart('Çalıştığı İlçeye Göre Dağılım','İlçe', r.ilceSayaclari) : '',
+    dag.includes('kadro') ? dagKart('Kadro Unvanına Göre Dağılım','Kadro Unvanı', r.kadroSayaclari) : ''
+  ].join('');
 
   return `<!DOCTYPE html>
 <html lang="tr"><head><meta charset="UTF-8"><title>Personel Raporu</title>
@@ -2515,32 +2562,12 @@ td.num{text-align:right;font-family:'IBM Plex Mono',monospace;}
     <div class="stat-box"><div class="n">${r.rows.length}</div><div class="l">Toplam Personel</div></div>
   </div>
 
-  <div class="two-col">
-    <div class="card">
-      <h2>Görevlere Göre Dağılım</h2>
-      <table><thead><tr><th>Görev</th><th style="text-align:right;">Adet</th></tr></thead>
-        <tbody>${sayacTablosu(r.gorevSayaclari)}</tbody>
-      </table>
-    </div>
-    <div class="card">
-      <h2>Çalıştığı İlçeye Göre Dağılım</h2>
-      <table><thead><tr><th>İlçe</th><th style="text-align:right;">Adet</th></tr></thead>
-        <tbody>${sayacTablosu(r.ilceSayaclari)}</tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Kadro Unvanına Göre Dağılım</h2>
-    <table><thead><tr><th>Kadro Unvanı</th><th style="text-align:right;">Adet</th></tr></thead>
-      <tbody>${sayacTablosu(r.kadroSayaclari)}</tbody>
-    </table>
-  </div>
+  ${dagilimHtml}
 
   <div class="card">
     <h2>Detaylı Personel Listesi</h2>
     <table>
-      <thead><tr><th>Sicil No</th><th>TC Kimlik No</th><th>Ad Soyad</th><th>Kadro Unvanı</th><th>Görevi</th><th>İlçe</th><th>Telefon</th><th>Kan Grubu</th></tr></thead>
+      <thead><tr>${detayBaslik}</tr></thead>
       <tbody>${detaySatirlari}</tbody>
     </table>
   </div>
@@ -2552,8 +2579,11 @@ function generatePersonelReport(){
     const filters = {
       ilce: document.getElementById('pr-ilce').value,
       kadro: document.getElementById('pr-kadro').value,
-      gorev: document.getElementById('pr-gorev').value
+      gorev: document.getElementById('pr-gorev').value,
+      dagilimlar: Array.from(document.querySelectorAll('.pr-dagilim-cb:checked')).map(x=>x.value),
+      kolonlar: Array.from(document.querySelectorAll('.pr-kolon-cb:checked')).map(x=>x.value)
     };
+    if(filters.kolonlar.length===0){ alert('Detaylı listede en az bir bilgi seçmelisiniz.'); return; }
     const r = buildPersonelReport(filters);
     const html = renderPersonelReportHtml(filters, r);
 
